@@ -3,6 +3,7 @@ import express from "express";
 import { Argon2id } from "oslo/password";
 import { db, lucia } from "../lib/auth";
 import { authMiddleware, currentUser } from "../middleware/auth";
+import { createUser, getUser } from "../actions/user";
 
 const authRouter = express.Router();
 
@@ -30,7 +31,7 @@ authRouter.post("/login", async (req, res) => {
       // res.setHeader("Set-Cookie", sessionCookie.serialize());
       res.appendHeader("Set-Cookie", sessionCookie.serialize());
       console.log(res.getHeaders());
-      return res.status(201).json({ session: session.id, user: user.id });
+      return res.status(201).json({ session: session, user: user });
     } else {
       return res.status(401).json({ message: "Invalid username or password" });
     }
@@ -56,19 +57,12 @@ authRouter.post("/signup", async (req, res) => {
     }
     const hashedPassword = await new Argon2id().hash(password);
 
-    if (isEmail(username) && !isEmail(username, ["psnacet.edu.in"])) {
-      return res.status(400).json({ message: "Invalid username" });
-    }
+    // if (isEmail(username) && !isEmail(username, ["psnacet.edu.in"])) {
+    //   return res.status(400).json({ message: "Invalid username" });
+    // }
 
     const user =
-      (await getUser(username)) || isEmail(username)
-        ? await db.user.create({
-            data: {
-              email: username,
-              password: hashedPassword,
-            },
-          })
-        : null;
+      (await getUser(username)) || (await createUser(username, hashedPassword));
 
     if (!user) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -109,7 +103,7 @@ authRouter.post("/logout", authMiddleware, async (req, res) => {
       "Set-Cookie",
       lucia.createBlankSessionCookie().serialize()
     );
-    res.json({ message: "Logged out" });
+    res.status(200).json({ message: "Logged out" });
   } catch (err: any) {
     console.log(err.message);
     res.status(500).json({ message: "Internal server error" });
@@ -131,7 +125,8 @@ authRouter.get("/profile", authMiddleware, async (req, res) => {
 });
 
 authRouter.get("/currentUser", async (req, res) => {
-  console.log("currentUser");
+  console.log("currentUser", req.headers);
+
   try {
     return res.json({ user: await currentUser(req) });
   } catch (error: any) {
@@ -141,33 +136,3 @@ authRouter.get("/currentUser", async (req, res) => {
 });
 
 export default authRouter;
-
-export async function getUser(username: string) {
-  return (
-    (await db.user.findUnique({
-      where: {
-        email: username,
-      },
-    })) ||
-    (await db.user.findFirst({
-      where: {
-        student: {
-          regNo: username,
-        },
-      },
-    }))
-  );
-}
-
-export function isEmail(username: string, domains?: string[]): boolean {
-  // regex for email validation
-  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-  if (emailRegex.test(username)) {
-    if (domains) {
-      const domain = username.split("@")[1];
-      return domains.includes(domain);
-    }
-    return true;
-  }
-  return false;
-}

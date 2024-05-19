@@ -1,5 +1,5 @@
 import express from "express";
-import { lucia } from "../lib/auth";
+import { db, lucia } from "../lib/auth";
 import { User } from "lucia";
 
 // export const authMiddleware = async (
@@ -83,11 +83,20 @@ export const authMiddleware = async (
 export const currentUser = async (
   req: express.Request
 ): Promise<User | null> => {
+  console.log("AUTH Cookie dasd", req.headers?.cookie);
   const sessionId = lucia.readSessionCookie(req.headers.cookie ?? "");
   if (!sessionId) {
     console.log("Session not found");
     return null;
   }
   const { user } = await lucia.validateSession(sessionId);
-  return user;
+
+  const userObj = user
+    ? await db.user.findUnique({
+        where: {
+          id: user.id,
+        },
+      })
+    : null;
+  return userObj;
 };

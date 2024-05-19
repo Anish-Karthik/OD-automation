@@ -11,7 +11,9 @@ import { User, verifyRequestOrigin } from "lucia";
 import { lookup } from "dns";
 import { hostname } from "os";
 import { promisify } from "util";
+export * as PrismaTypes from "@prisma/client";
 // import bodyParser from "body-parser";
+
 
 const lookupAsync = promisify(lookup);
 

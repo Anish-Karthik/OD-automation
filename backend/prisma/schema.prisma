@@ -20,11 +20,19 @@ model Session {
   user      User     @relation(references: [id], fields: [userId], onDelete: Cascade)
 }
 
-// The User model is used by the NextAuth.js authentication library
+enum UserRole {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
 model User {
-  id            String    @id @default(auto()) @map("_id") @db.ObjectId
-  name          String?
-  email         String?   @unique
+  id       String    @id @default(auto()) @map("_id") @db.ObjectId
+  name     String?
+  email    String?   @unique
+  username String?   @unique
+  role     UserRole
+
   emailVerified DateTime?
   image         String?
   password      String?
@@ -47,7 +55,6 @@ model User {
 
 model Admin {
   id     String @id @default(auto()) @map("_id") @db.ObjectId
-  role   String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   userId String @unique @db.ObjectId
 }

@@ -1,13 +1,19 @@
+"use client";
 import DemoClient from "@/components/DemoClient";
-import { currentUser } from "@/lib/auth";
-import { api } from "@/lib/axiosConfig";
 import Image from "next/image";
+import { redirect } from "next/navigation";
+import { useCurrentUser } from "../../../shared/hooks";
 
-export default async function Home() {
-  const user = await currentUser();
-  const tmp = await api.get("/");
-  console.log(tmp.data);
-  console.log(user);
+export default function Home() {
+  const {user, fetching} = useCurrentUser();
+
+
+  if (fetching) {
+    return <div>Loading...</div>;
+  }
+  if (!user) {
+    redirect("/auth/login");
+  }
   return (
     <div>
       <Image src="/vercel.svg" alt="Vercel Logo" width={72} height={16} />
