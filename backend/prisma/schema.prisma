@@ -1,0 +1,152 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  expiresAt DateTime
+  user      User     @relation(references: [id], fields: [userId], onDelete: Cascade)
+}
+
+// The User model is used by the NextAuth.js authentication library
+model User {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  conversations Form[]
+
+  Request Request[]
+
+  admin   Admin?
+  student Student?
+  teacher Teacher?
+
+  adminId   String?
+  studentId String?
+  teacherId String?
+  Session   Session[]
+}
+
+model Admin {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  role   String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  userId String @unique @db.ObjectId
+}
+
+model Department {
+  id       String    @id @default(auto()) @map("_id") @db.ObjectId
+  name     String
+  code     String
+  students Student[]
+
+  @@index([name], name: "department_index")
+  @@index([code], name: "department_index_code")
+}
+
+model Student {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  regNo    String  @unique
+  rollno   Int
+  name     String
+  year     Int
+  section  String
+  semester Int
+  vertical String? @default("NONE")
+  batch    String? @default("2021-2025")
+  email    String?
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @unique @db.ObjectId
+
+  tutor   Teacher @relation("tutor", fields: [tutorId], references: [id])
+  tutorId String  @db.ObjectId
+
+  yearInCharge   Teacher @relation("yearInCharge", fields: [yearInChargeId], references: [id])
+  yearInChargeId String  @db.ObjectId
+
+  department   Department? @relation(fields: [departmentId], references: [id])
+  departmentId String?     @db.ObjectId
+}
+
+model Teacher {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  tutorOf        Student[] @relation("tutor")
+  yearInChargeOf Student[] @relation("yearInCharge")
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @unique @db.ObjectId
+}
+
+enum FormType {
+  ON_DUTY
+  LEAVE
+}
+
+// The Form and Message models are used to store chat messages
+model Form {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt   DateTime @default(now())
+  requester   User     @relation(fields: [requesterId], references: [id])
+  requesterId String   @db.ObjectId
+
+  formType FormType  @default(ON_DUTY)
+  requests Request[]
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model Request {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now())
+
+  status    RequestStatus
+  requested User          @relation(fields: [requestedId], references: [id])
+
+  form        Form   @relation(fields: [formId], references: [id])
+  formId      String @db.ObjectId
+  requestedId String @db.ObjectId
+}
+
+// The PasswordResetToken and VerificationToken models are used by the NextAuth.js authentication library
+model PasswordResetToken {
+  id      String   @id @default(auto()) @map("_id") @db.ObjectId
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model VerificationToken {
+  id      String   @id @default(auto()) @map("_id") @db.ObjectId
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
