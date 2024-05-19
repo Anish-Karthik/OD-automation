@@ -1,1 +1,1 @@
-export { useCurrentUser, useAuth } from '../../../../shared/hooks';
+export { useCurrentUser, useAuth, useDurationDetails } from '../../../../shared/hooks';

@@ -46,7 +46,7 @@ export async function createUser(
   userRole?: UserRole
 ) {
   const isValidUserName =
-    !isEmail(username, ["psnacet.edu.in"]) && !isRegNo(username);
+    isEmail(username, ["psnacet.edu.in"]) && !isRegNo(username);
   // const isValidUserEmail = isEmail(username, ["psnacet.edu.in"]);
   if (!isValidUserName) {
     return null;

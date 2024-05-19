@@ -27,10 +27,10 @@ enum UserRole {
 }
 
 model User {
-  id       String    @id @default(auto()) @map("_id") @db.ObjectId
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
   name     String?
-  email    String?   @unique
-  username String?   @unique
+  email    String?  @unique
+  username String?  @unique
   role     UserRole
 
   emailVerified DateTime?
@@ -39,9 +39,9 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  conversations Form[]
+  forms Form[]
 
-  Request Request[]
+  requests Request[]
 
   admin   Admin?
   student Student?
@@ -59,11 +59,30 @@ model Admin {
   userId String @unique @db.ObjectId
 }
 
+model College {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  logo        String?
+  coverImage  String?
+  name        String?
+  district    String?
+  description String?
+
+  code  String? @unique @default("xxxx")
+  aishe String? @unique @default("C-xxxxx")
+
+  state   String?
+  pincode String?
+  address String?
+  phone   String?
+  email   String?
+}
+
 model Department {
   id       String    @id @default(auto()) @map("_id") @db.ObjectId
   name     String
   code     String
   students Student[]
+  Teacher  Teacher[]
 
   @@index([name], name: "department_index")
   @@index([code], name: "department_index_code")
@@ -85,11 +104,11 @@ model Student {
   user   User   @relation(fields: [userId], references: [id])
   userId String @unique @db.ObjectId
 
-  tutor   Teacher @relation("tutor", fields: [tutorId], references: [id])
-  tutorId String  @db.ObjectId
+  tutor   Teacher? @relation("tutor", fields: [tutorId], references: [id])
+  tutorId String?  @db.ObjectId
 
-  yearInCharge   Teacher @relation("yearInCharge", fields: [yearInChargeId], references: [id])
-  yearInChargeId String  @db.ObjectId
+  yearInCharge   Teacher? @relation("yearInCharge", fields: [yearInChargeId], references: [id])
+  yearInChargeId String?  @db.ObjectId
 
   department   Department? @relation(fields: [departmentId], references: [id])
   departmentId String?     @db.ObjectId
@@ -100,6 +119,9 @@ model Teacher {
 
   tutorOf        Student[] @relation("tutor")
   yearInChargeOf Student[] @relation("yearInCharge")
+
+  departmentId String?     @db.ObjectId
+  hodOf        Department? @relation(fields: [departmentId], references: [id])
 
   user   User   @relation(fields: [userId], references: [id])
   userId String @unique @db.ObjectId
@@ -112,10 +134,15 @@ enum FormType {
 
 // The Form and Message models are used to store chat messages
 model Form {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt   DateTime @default(now())
-  requester   User     @relation(fields: [requesterId], references: [id])
-  requesterId String   @db.ObjectId
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now())
+
+  category String
+  reason   String
+  dates    DateTime[]
+
+  requester   User   @relation(fields: [requesterId], references: [id])
+  requesterId String @db.ObjectId
 
   formType FormType  @default(ON_DUTY)
   requests Request[]

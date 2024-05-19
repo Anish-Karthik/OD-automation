@@ -62,7 +62,8 @@ authRouter.post("/signup", async (req, res) => {
     // }
 
     const user =
-      (await getUser(username)) || (await createUser(username, hashedPassword));
+      (await getUser(username)) ||
+      (await createUser(username, hashedPassword, "STUDENT"));
 
     if (!user) {
       return res.status(401).json({ message: "Unauthorized" });

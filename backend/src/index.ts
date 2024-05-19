@@ -14,7 +14,6 @@ import { promisify } from "util";
 export * as PrismaTypes from "@prisma/client";
 // import bodyParser from "body-parser";
 
-
 const lookupAsync = promisify(lookup);
 
 const getIp = async () => {
