@@ -1,18 +1,10 @@
-import { Prisma, Student } from "@prisma/client"
-import { z } from "zod"
+import { router } from "../index";
 
-
-
-import { publicProcedure, router } from "../index"
-import { db } from "../../lib/auth"
-
-import { studentRouter } from "./student"
-
-
+import { studentRouter } from "./student";
+import { teacherRouter } from "./teacher";
 
 export const userRouter = router({
   student: studentRouter,
-  // teacher: teacherRouter,
+  teacher: teacherRouter,
   // admin: adminRouter,
-})
-
+});

@@ -31,14 +31,21 @@ import { Input } from "@/components/ui/input";
 import toast from "react-hot-toast";
 import { formSchema } from "@/schemas/form";
 import { formatDate } from "date-fns";
+import { PrismaTypes } from "../../../../../backend/src";
 
 const position = ["Tutor", "Year In Charge", "HOD"];
 const Dashboard = () => {
+  const utils = trpc.useUtils();
   const durationState = useDurationDetails();
   const { user, fetching } = useCurrentUser();
   const [currDate, setCurrentDate] = React.useState<string>("");
   const { data: forms } = trpc.user.student.form.list.useQuery(user?.id || "");
-  const createApplication = trpc.user.student.form.create.useMutation();
+  const createApplication = trpc.user.student.form.create.useMutation({
+    onSuccess: () => {
+      utils.user.student.form.list.cancel();
+      utils.user.student.form.list.invalidate();
+    },
+  });
   const router = useRouter();
   // 1. Define your form.
   const form = useForm<z.infer<typeof formSchema>>({
@@ -202,6 +209,19 @@ const Dashboard = () => {
               <p>{position[ind]}</p>
             </div>
           ))}
+          {application.requests.find(
+            (request) => request.status === "REJECTED"
+          ) ? (
+            <div>OD Rejected</div>
+          ) : application.requests.find(
+              (request) => request.status === "PENDING"
+            ) ? (
+            <div>OD Pending</div>
+          ) : application.requests.every(
+              (request) => request.status === "ACCEPTED"
+            ) ? (
+            <div>OD Accepted</div>
+          ) : null}
         </div>
       ))}
     </div>

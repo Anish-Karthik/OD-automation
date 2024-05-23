@@ -82,7 +82,7 @@ model Department {
   name     String
   code     String
   students Student[]
-  Teacher  Teacher[]
+  hod      Teacher?
 
   @@index([name], name: "department_index")
   @@index([code], name: "department_index_code")
@@ -120,7 +120,7 @@ model Teacher {
   tutorOf        Student[] @relation("tutor")
   yearInChargeOf Student[] @relation("yearInCharge")
 
-  departmentId String?     @db.ObjectId
+  departmentId String?     @unique @db.ObjectId
   hodOf        Department? @relation(fields: [departmentId], references: [id])
 
   user   User   @relation(fields: [userId], references: [id])
@@ -158,8 +158,9 @@ model Request {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   createdAt DateTime @default(now())
 
-  status    RequestStatus
-  requested User          @relation(fields: [requestedId], references: [id])
+  status             RequestStatus
+  requested          User          @relation(fields: [requestedId], references: [id])
+  reasonForRejection String?
 
   form        Form   @relation(fields: [formId], references: [id])
   formId      String @db.ObjectId

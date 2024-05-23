@@ -2,6 +2,7 @@ import { publicProcedure, router } from "../index";
 import { db } from "../../lib/auth";
 import z from "zod";
 import { Form, FormType } from "@prisma/client";
+import { createRequest } from "../../actions/request";
 
 export const studentFormRouter = router({
   list: publicProcedure.input(z.string()).query(async ({ input: userId }) => {
@@ -44,15 +45,9 @@ export const studentFormRouter = router({
         throw new Error("Student not found");
       }
       console.log(student);
-      const request = await db.request.create({
-        data: {
-          status: "PENDING",
-          formId: form.id,
-          requestedId: student.tutor?.userId!,
-        },
-        include: {
-          requested: true,
-        },
+      const request = await createRequest({
+        formId: form.id,
+        requestedId: student.tutor?.userId!,
       });
       console.log(request);
       return {
