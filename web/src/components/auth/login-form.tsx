@@ -60,7 +60,7 @@ export const LoginForm = () => {
               if (callbackUrl) {
                 router.push(callbackUrl);
               } else {
-                router.push(`/${res.data.user.role.toLowerCase()}/dashboard`);
+                router.push(`/${res.data.user.role.toLowerCase()}`);
               }
             });
           } else {

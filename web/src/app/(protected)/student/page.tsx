@@ -26,7 +26,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-
 import { Input } from "@/components/ui/input";
 import toast from "react-hot-toast";
 import { formSchema } from "@/schemas/form";
@@ -34,6 +33,7 @@ import { formatDate } from "date-fns";
 import { PrismaTypes } from "../../../../../backend/src";
 
 const position = ["Tutor", "Year In Charge", "HOD"];
+
 const Dashboard = () => {
   const utils = trpc.useUtils();
   const durationState = useDurationDetails();
@@ -47,7 +47,8 @@ const Dashboard = () => {
     },
   });
   const router = useRouter();
-  // 1. Define your form.
+  
+  // Define your form.
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -57,7 +58,7 @@ const Dashboard = () => {
     },
   });
 
-  // 2. Define a submit handler.
+  // Define a submit handler.
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       await createApplication.mutateAsync({
@@ -70,40 +71,43 @@ const Dashboard = () => {
       console.log(error);
       toast.error("Error creating application");
     }
-    // Do something with the form values.
-    // ✅ This will be type-safe and validated.
     console.log(values);
   }
+  
   if (fetching) {
     return <div>Loading...</div>;
   }
+  
   if (!user) {
     router.push("/auth/login");
-    return <div> Unauthenticated </div>;
+    return <div>Unauthenticated</div>;
   }
+  
   if (user.role !== "STUDENT") {
     logout().then(() => {
       router.push("/auth/login");
     });
-
-    return <div> Unauthorized </div>;
+    return <div>Unauthorized</div>;
   }
+  
   return (
-    <div>
-      <h1>Dashboard</h1>
-      <h2>Welcome {user.name}</h2>
+    <div className="p-6 space-y-8">
+      <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
+      <h2 className="text-xl mb-6">Welcome, {user.name}</h2>
+
       <Dialog>
-        <DialogTrigger>Add Application</DialogTrigger>
+        <DialogTrigger asChild>
+          <Button className="bg-blue-500 text-white hover:bg-blue-600">Add Application</Button>
+        </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Are you absolutely sure?</DialogTitle>
-            <DialogDescription>
-              This action cannot be undone. This will permanently delete your
-              account and remove your data from our servers.
+            <DialogTitle className="text-lg font-semibold">Add New Application</DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
+              Fill out the form below to submit a new application.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
                 name="category"
@@ -111,7 +115,7 @@ const Dashboard = () => {
                   <FormItem>
                     <FormLabel>Category</FormLabel>
                     <FormControl>
-                      <Input placeholder="shadcn" {...field} />
+                      <Input placeholder="Category" {...field} />
                     </FormControl>
                     <FormDescription>
                       Enter the category of the form
@@ -127,7 +131,7 @@ const Dashboard = () => {
                   <FormItem>
                     <FormLabel>Reason</FormLabel>
                     <FormControl>
-                      <Input placeholder="shadcn" {...field} />
+                      <Input placeholder="Reason" {...field} />
                     </FormControl>
                     <FormDescription>
                       Enter the reason for the form
@@ -143,7 +147,7 @@ const Dashboard = () => {
                   <FormItem>
                     <FormLabel>Form Type</FormLabel>
                     <FormControl>
-                      <Input placeholder="shadcn" {...field} />
+                      <Input placeholder="Form Type" {...field} />
                     </FormControl>
                     <FormDescription>
                       Enter the type of the form
@@ -152,78 +156,85 @@ const Dashboard = () => {
                   </FormItem>
                 )}
               />
-              <div className="flex flex-col gap-1">
-                <div className="flex gap-2">
+              <div className="bg-gray-100 p-4 rounded-lg border border-gray-300">
+                <p className="font-semibold mb-2">Select Dates</p>
+                <div className="flex gap-2 mb-4">
                   <Input
-                    placeholder="date"
+                    placeholder="Date"
                     type="date"
                     value={currDate}
                     onChange={(e) => setCurrentDate(e.target.value)}
+                    className="w-1/2"
                   />
                   <Button
                     type="button"
                     onClick={() => {
-                      durationState.addDate(currDate);
-                      setCurrentDate("");
+                      if (currDate) {
+                        durationState.addDate(currDate);
+                        setCurrentDate("");
+                      }
                     }}
+                    className="bg-green-500 text-white hover:bg-green-600"
                   >
                     Add Date
                   </Button>
                 </div>
-                <div className="flex w-full flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
                   {durationState.dates.map((date) => (
                     <div
                       key={date}
-                      onClick={() => {
-                        durationState.removeDate(date);
-                      }}
-                      className="bg-gray-200 hover:bg-red-500 p-2 rounded-md"
+                      onClick={() => durationState.removeDate(date)}
+                      className="bg-blue-200 hover:bg-blue-300 text-blue-800 cursor-pointer p-2 rounded-md"
                     >
-                      <p>{date}</p>
+                      {formatDate(new Date(date), "dd-MM-yy")}
                     </div>
                   ))}
                 </div>
               </div>
               <DialogClose asChild>
-                <Button type="submit">Submit</Button>
+                <Button
+                  type="submit"
+                  className="bg-blue-500 text-white hover:bg-blue-600"
+                >
+                  Submit
+                </Button>
               </DialogClose>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
 
-      {forms?.map((application) => (
-        <div key={application.id}>
-          <p>Requests: {application.requests.length}</p>
-          <p>{application.category}</p>
-          <p>{application.reason}</p>
-          <p>{application.formType}</p>
-          <p>
-            {application.dates.map((d) => formatDate(d, "dd-MM-yy")).join(", ")}
-          </p>
-          {application.requests.map((request, ind) => (
-            <div key={request.id} className="flex gap-1">
-              <p>{ind + 1}</p>
-              <p>{request.status}</p>
-              <p>{request.requested.name}</p>
-              <p>{position[ind]}</p>
+      <div className="space-y-6">
+        {forms?.map((application) => (
+          <div key={application.id} className="bg-white p-4 rounded-lg shadow-md">
+            <h3 className="text-lg font-semibold mb-2">{application.category}</h3>
+            <p><strong>Reason:</strong> {application.reason}</p>
+            <p><strong>Type:</strong> {application.formType}</p>
+            <p><strong>Dates:</strong> {application.dates.map((d) => formatDate(new Date(d), "dd-MM-yy")).join(", ")}</p>
+            <div className="mt-4">
+              {application.requests.map((request, ind) => (
+                <div key={request.id} className="flex items-center gap-2 mb-2">
+                  <div className="flex-shrink-0 bg-gray-200 text-gray-800 p-2 rounded-full">{ind + 1}</div>
+                  <div>
+                    <p><strong>Status:</strong> {request.status}</p>
+                    <p><strong>Name:</strong> {request.requested.name}</p>
+                    <p><strong>Position:</strong> {position[ind]}</p>
+                  </div>
+                </div>
+              ))}
+              <div className="mt-2">
+                {application.requests.find((request) => request.status === "REJECTED") ? (
+                  <div className="text-red-500">OD Rejected</div>
+                ) : application.requests.find((request) => request.status === "PENDING") ? (
+                  <div className="text-yellow-500">OD Pending</div>
+                ) : application.requests.every((request) => request.status === "ACCEPTED") ? (
+                  <div className="text-green-500">OD Accepted</div>
+                ) : null}
+              </div>
             </div>
-          ))}
-          {application.requests.find(
-            (request) => request.status === "REJECTED"
-          ) ? (
-            <div>OD Rejected</div>
-          ) : application.requests.find(
-              (request) => request.status === "PENDING"
-            ) ? (
-            <div>OD Pending</div>
-          ) : application.requests.every(
-              (request) => request.status === "ACCEPTED"
-            ) ? (
-            <div>OD Accepted</div>
-          ) : null}
-        </div>
-      ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
