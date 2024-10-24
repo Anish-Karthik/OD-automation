@@ -10,34 +10,36 @@ const authRouter = express.Router();
 authRouter.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
-    console.log("LOGIN", username, password);
     if (!username || !password) {
       return res.status(400).json({ message: "Invalid username or password" });
     }
-    const user = await getUser(username);
 
+    const user = await getUser(username);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-    const isValidPassword = await new Argon2id().verify(
-      user.password!,
-      password
-    );
+
+    const isValidPassword = await new Argon2id().verify(user.password!, password);
     if (isValidPassword) {
       const sessionId = randomBytes(12).toString("hex");
       const session = await lucia.createSession(user.id, {}, { sessionId });
       const sessionCookie = lucia.createSessionCookie(session.id);
-      // res.cookie("hellooo", "hiiiiii");
-      // res.setHeader("Set-Cookie", sessionCookie.serialize());
-      res.appendHeader("Set-Cookie", sessionCookie.serialize());
-      console.log(res.getHeaders());
+
+      // Properly set the cookie
+      res.cookie('session', sessionCookie.serialize(), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 1000, // 1 hour
+        path: '/'
+      });
+
       return res.status(201).json({ session: session, user: user });
     } else {
       return res.status(401).json({ message: "Invalid username or password" });
     }
   } catch (error: any) {
     console.log(error.message);
-    return error(500, "Internal server error");
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
 
