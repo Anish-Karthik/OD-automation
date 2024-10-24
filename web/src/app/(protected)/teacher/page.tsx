@@ -1,26 +1,31 @@
-"use client";
+'use client'
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
-import { logout } from "@/shared/actions";
 import { useCurrentUser } from "@/shared/hooks";
 import { useRouter } from "next/navigation";
-
-import { formatDate } from "date-fns";
 import toast from "react-hot-toast";
+import Navbar from "@/components/Navbar/Navbar";
 
-const position = ["Tutor", "Year In Charge", "HOD"];
+// Helper function to format date
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',     
+  }).format(date);
+};
 
-const Dashboard = () => {
+const DashboardPending = () => {
   const utils = trpc.useUtils();
   const { user, fetching } = useCurrentUser();
   const { data: forms } = trpc.user.teacher.form.list.useQuery(user?.id || "");
-  const acceptOrRejectApplication =
-    trpc.user.teacher.form.acceptOrReject.useMutation({
-      onSuccess: () => {
-        utils.user.teacher.form.list.cancel();
-        utils.user.teacher.form.list.invalidate();
-      },
-    });
+  const acceptOrRejectApplication = trpc.user.teacher.form.acceptOrReject.useMutation({
+    onSuccess: () => {
+      utils.user.teacher.form.list.cancel();
+      utils.user.teacher.form.list.invalidate();
+    },
+  });
   const router = useRouter();
 
   if (fetching) {
@@ -30,67 +35,83 @@ const Dashboard = () => {
     router.push("/auth/login");
     return <div className="text-center text-gray-500">Unauthenticated</div>;
   }
-  if (user.role !== "TEACHER") {
-    logout().then(() => {
-      router.push("/auth/login");
-    });
-    return <div className="text-center text-gray-500">Unauthorized</div>;
-  }
 
-  async function onSubmit({
-    requesterId,
-    requestId,
-    status,
-    reasonForRejection,
-  }: {
-    requesterId: string;
-    requestId: string;
-    status: "ACCEPTED" | "REJECTED";
-    reasonForRejection: string;
-  }) {
+  // Filter pending requests for the current user
+  const pendingForCurrentUser = forms?.filter((form) =>
+    form.requests.some((req) => req.requestedId === user.id && req.status === "PENDING")
+  );
+
+  async function onSubmit({ requesterId, requestId, status }: any) {
     try {
       await acceptOrRejectApplication.mutateAsync({
         requesterId,
         requestId,
         status,
-        reasonForRejection,
+        reasonForRejection: "",
         requestedId: user!.id,
       });
 
       toast.success("Application updated successfully");
     } catch (error) {
-      console.log(error);
       toast.error("Error updating application");
     }
   }
 
+
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white shadow-md rounded-lg">
-      <h1 className="text-3xl font-bold text-gray-900 mb-4">Dashboard</h1>
-      <h2 className="text-xl font-semibold text-gray-700 mb-6">Welcome, {user.name}</h2>
-
-      {forms?.map((application) => (
-        <div key={application.id} className="bg-gray-50 p-4 rounded-lg shadow-sm mb-4">
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">Category: {application.category}</h3>
-          <p className="text-gray-600 mb-2">Reason: {application.reason}</p>
-          <p className="text-gray-600 mb-2">Form Type: {application.formType}</p>
-          <p className="text-gray-600 mb-4">
-            Dates: {application.dates.map((d) => formatDate(d, "dd-MM-yy")).join(", ")}
-          </p>
-
-          {application.requests.map((request, ind) =>
-            request.requestedId !== user.id || request.status !== "PENDING" ? (
-              <div key={request.id} className="flex items-center gap-4 mb-2 p-2 bg-white shadow rounded">
-                <p className="text-gray-700">{ind + 1}. {request.status}</p>
-                <p className="text-gray-700">{request.requested.name}</p>
-                <p className="text-gray-500">{position[ind]}</p>
+    <div>
+      <Navbar text="OD History" />
+      <div className="max-w-4xl mx-auto p-6 bg-white shadow-md rounded-lg">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">Pending Requests</h2>
+        {pendingForCurrentUser && pendingForCurrentUser.length > 0 ? (
+          pendingForCurrentUser.map((application) => (
+            <div key={application.id} className="bg-gray-50 p-4 rounded-lg shadow-sm mb-4">
+              {/* Render student details first */}
+              <div className="mb-4 space-y-2">
+                <div className="flex justify-between">
+                  <p className="font-bold">Student Name:</p>
+                  <p className="font-normal">{application?.requester?.student?.name || 'Anish Karthik A'}</p>
+                </div>
+                <div className="flex justify-between">
+                  <p className="font-bold">Register Number:</p>
+                  <p className="font-normal">{application?.requester?.student?.regNo || '921321104020'}</p>
+                </div>
+                <div className="flex justify-between">
+                  <p className="font-bold">Year & Section:</p>
+                  <p className="font-normal">
+                    {`${application?.requester?.student?.year || '3'}-${application?.requester?.student?.section || 'A'}`}
+                  </p>
+                </div>
               </div>
-            ) : (
-              <div key={request.id} className="flex items-center gap-4 mb-2 p-2 bg-white shadow rounded">
-                <p className="text-gray-700">{ind + 1}. {request.status}</p>
-                <p className="text-gray-700">{request.requested.name}</p>
-                <p className="text-gray-500">{position[ind]}</p>
-                <div className="ml-auto flex gap-2">
+
+              {/* Render OD details */}
+              <div className="mb-4 space-y-2">
+              <div className="flex justify-between">
+                  <p className="font-bold">Total ODs:</p>
+                  <p className="font-normal">16</p>
+                </div>
+                <div className="flex justify-between">
+                  <p className="font-bold">Category:</p>
+                  <p className="font-normal">{application.category}</p>
+                </div>
+                <div className="flex justify-between">
+                  <p className="font-bold">Dates:</p>
+                  <p className="font-normal">
+                    {application.dates.map((date: string, index: number) => (
+                      <span key={index}>{formatDate(date)}{index < application.dates.length - 1 ? ' - ' : ''}</span>
+                    ))}
+                  </p>
+                </div>
+                <div className="flex justify-between">
+                  <p className="font-bold">Reason:</p>
+                  <p className="font-normal">{application.reason}</p>
+                </div>
+              </div>
+
+              {/* Render each request with Accept/Reject buttons */}
+              {application.requests.map((request, ind) => (
+                <div key={request.id} className="flex items-center gap-4 mb-2 p-2 bg-white shadow rounded">
+                  <p className="text-gray-700">{ind + 1}. {request.status}</p>
                   <Button
                     className="bg-green-500 hover:bg-green-600 text-white"
                     onClick={() =>
@@ -98,7 +119,6 @@ const Dashboard = () => {
                         requesterId: application.requesterId,
                         requestId: request.id,
                         status: "ACCEPTED",
-                        reasonForRejection: "",
                       })
                     }
                   >
@@ -111,20 +131,21 @@ const Dashboard = () => {
                         requesterId: application.requesterId,
                         requestId: request.id,
                         status: "REJECTED",
-                        reasonForRejection: "",
                       })
                     }
                   >
                     Reject
                   </Button>
                 </div>
-              </div>
-            )
-          )}
-        </div>
-      ))}
+              ))}
+            </div>
+          ))
+        ) : (
+          <div className="text-center text-gray-500">No pending OD requests</div>
+        )}
+      </div>
     </div>
   );
 };
 
-export default Dashboard;
+export default DashboardPending;

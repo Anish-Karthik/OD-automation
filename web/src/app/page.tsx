@@ -11,23 +11,37 @@ export default function Home() {
   const { user, fetching } = useCurrentUser();
 
   if (fetching) {
-    return <div>Loading...</div>;
+    return (
+      <div
+        className="
+      flex
+      items-center
+      justify-center
+      h-screen
+      text-gray-500
+    "
+      >
+        Loading...
+      </div>
+    );
   }
   if (!user) {
     redirect("/auth/login");
+  } else {
+    redirect("/" + user?.role.toLowerCase());
   }
-  return (
-    <div>
-      <Image src="/vercel.svg" alt="Vercel Logo" width={72} height={16} />
-      <h1>Hello, {user?.id}</h1>
-      <DemoClient />
-      <Button onClick={() => logout()}>Logout</Button>
-      <Link
-        href={`/${user.role.toLowerCase()}`}
-        className="p-2 bg-gray-300 rounded-md hover:bg-gray-200"
-      >
-        Dashboard
-      </Link>
-    </div>
-  );
+  // return (
+  //   <div>
+  //     <Image src="/vercel.svg" alt="Vercel Logo" width={72} height={16} />
+  //     <h1>Hello, {user?.id}</h1>
+  //     <DemoClient />
+  //     <Button onClick={() => logout()}>Logout</Button>
+  //     <Link
+  //       href={`/${user?.role.toLowerCase()}`}
+  //       className="p-2 bg-gray-300 rounded-md hover:bg-gray-200"
+  //     >
+  //       Dashboard
+  //     </Link>
+  //   </div>
+  // );
 }
