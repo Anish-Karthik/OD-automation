@@ -29,6 +29,7 @@
     "@prisma/client": "^5.11.0",
     "@trpc/client": "11.0.0-rc.334",
     "@trpc/server": "11.0.0-rc.334",
+    "backend": "file:",
     "body-parser": "^1.20.2",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
