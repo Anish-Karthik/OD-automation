@@ -1,8 +1,7 @@
+import { Prisma, Teacher } from "@prisma/client";
 import { z } from "zod";
-import { publicProcedure, router } from "../index";
 import { db } from "../../lib/auth";
-import { studentFormRouter } from "./student-form";
-import { Prisma, Student, Teacher } from "@prisma/client";
+import { publicProcedure, router } from "../index";
 import { teacherFormRouter } from "./teacher-form";
 
 export const teacherRouter = router({
@@ -13,8 +12,70 @@ export const teacherRouter = router({
     });
   }),
   list: publicProcedure.query(async () => {
-    return await db.teacher.findMany({});
+    const teachers: {
+      id: string;
+      name: string | null;
+      email: string | null;
+    }[] = (
+      await db.teacher.findMany({
+        select: {
+          id: true,
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
+      })
+    ).map((teacher) => ({
+      id: teacher.id,
+      name: teacher.user.name,
+      email: teacher.user.email,
+    }));
+    return teachers;
   }),
+
+  create: publicProcedure
+    .input(
+      z.object({
+        name: z.string().min(1, "Name is required"),
+        email: z.string().email("Invalid email address"),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return await db.user.create({
+        data: {
+          role: "TEACHER",
+          email: input.email,
+          name: input.name,
+          username: input.email,
+          teacher: {
+            create: {},
+          },
+        },
+      });
+    }),
+  
+  createMany: publicProcedure
+    .input(z.array(z.object({
+      name: z.string().min(1, "Name is required"),
+      email: z.string().email("Invalid email address"),
+    })))
+    .mutation(async ({ input }) => {
+      return await db.user.createMany({
+        data: input.map((teacher) => ({
+          role: "TEACHER",
+          email: teacher.email,
+          name: teacher.name,
+          username: teacher.email,
+          teacher: {
+            create: {},
+          },
+        })),
+      });
+    }),
+
   getFilteredRequests: publicProcedure
     .input(
       z.object({
