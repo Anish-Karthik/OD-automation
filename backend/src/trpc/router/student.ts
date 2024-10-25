@@ -4,6 +4,38 @@ import { db } from "../../lib/auth";
 import { publicProcedure, router } from "../index";
 import { studentFormRouter } from "./student-form";
 
+const studentInputSchema = z.object({
+  rollno: z.number(),
+  regNo: z.string().min(1, "Registration number is required"),
+  name: z.string().min(1, "Name is required"),
+  year: z.number().min(1).max(5),
+  section: z.string().min(1, "Section is required"),
+  semester: z.number().min(1).max(10),
+  batch: z.string().nullable(),
+  email: z.string().email().nullable(),
+  departmentId: z.string().nullable(),
+});
+
+const upsertStudent = async (student: z.infer<typeof studentInputSchema>) => {
+  const data: any = {
+    role: "STUDENT",
+    email: student.email,
+    name: student.name,
+    username: student.email,
+    student: {
+      create: {
+        ...student,
+        departmentId: student.departmentId,
+      },
+    },
+  };
+  return await db.user.upsert({
+    where: { email: student.email! },
+    update: data,
+    create: data,
+  });
+};
+
 export const studentRouter = router({
   form: studentFormRouter,
   get: publicProcedure.input(z.string()).query(async ({ input: id }) => {
@@ -19,95 +51,15 @@ export const studentRouter = router({
   }),
 
   create: publicProcedure
-    .input(
-      z.object({
-        rollno: z.number(),
-        regNo: z.string().min(1, "Registration number is required"),
-        name: z.string().min(1, "Name is required"),
-        year: z.number().min(1).max(5),
-        section: z.string().min(1, "Section is required"),
-        semester: z.number().min(1).max(10),
-        batch: z.string().nullable(),
-        email: z.string().email().nullable(),
-        departmentId: z.string().nullable(),
-      })
-    )
+    .input(studentInputSchema)
     .mutation(async ({ input }) => {
-      return await db.user.upsert({
-        where: { email: input.email! },
-        update: {
-          role: "STUDENT",
-          email: input.email,
-          name: input.name,
-          username: input.email,
-          student: {
-            create: {
-              ...input,
-              departmentId: input.departmentId,
-            },
-          },
-        },
-        create: {
-          role: "STUDENT",
-          email: input.email,
-          name: input.name,
-          username: input.email,
-          student: {
-            create: {
-              ...input,
-              departmentId: input.departmentId,
-            },
-          },
-        },
-      });
+      return await upsertStudent(input);
     }),
 
   createMany: publicProcedure
-    .input(
-      z.array(
-        z.object({
-          rollno: z.number(),
-          regNo: z.string().min(1, "Registration number is required"),
-          name: z.string().min(1, "Name is required"),
-          year: z.number().min(1).max(5),
-          section: z.string().min(1, "Section is required"),
-          semester: z.number().min(1).max(10),
-          batch: z.string().nullable(),
-          email: z.string().email().nullable(),
-          departmentId: z.string().nullable(),
-        })
-      )
-    )
+    .input(z.array(studentInputSchema))
     .mutation(async ({ input }) => {
-      const studentsCreatePromises = input.map((student) =>
-        db.user.upsert({
-          where: { email: student.email! },
-          update: {
-            role: "STUDENT",
-            email: student.email,
-            name: student.name,
-            username: student.email,
-            student: {
-              create: {
-                ...student,
-                departmentId: student.departmentId,
-              },
-            },
-          },
-          create: {
-            role: "STUDENT",
-            email: student.email,
-            name: student.name,
-            username: student.email,
-            student: {
-              create: {
-                ...student,
-                departmentId: student.departmentId,
-              },
-            },
-          },
-        })
-      );
+      const studentsCreatePromises = input.map(upsertStudent);
       return await Promise.all(studentsCreatePromises);
     }),
 
