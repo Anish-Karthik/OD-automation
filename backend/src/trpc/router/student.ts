@@ -63,6 +63,15 @@ export const studentRouter = router({
       return await Promise.all(studentsCreatePromises);
     }),
 
+  delete: publicProcedure.input(z.string()).mutation(async ({ input: id }) => {
+    const teacher = await db.teacher.delete({
+      where: { id },
+    });
+    const user = await db.user.delete({
+      where: { id: teacher.userId },
+    });
+  }),
+
   getFilteredRequests: publicProcedure
     .input(
       z.object({
