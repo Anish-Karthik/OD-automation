@@ -39,13 +39,18 @@ export const teacherRouter = router({
   create: publicProcedure
     .input(
       z.object({
+        id: z.string().optional(),
         name: z.string().min(1, "Name is required"),
         email: z.string().email("Invalid email address"),
       })
     )
     .mutation(async ({ input }) => {
-      return await db.user.create({
-        data: {
+      return await db.user.upsert({
+        where: { email: input.email },
+        update: {
+          name: input.name,
+        },
+        create: {
           role: "TEACHER",
           email: input.email,
           name: input.name,
@@ -59,21 +64,29 @@ export const teacherRouter = router({
   
   createMany: publicProcedure
     .input(z.array(z.object({
+      id: z.string().optional(),
       name: z.string().min(1, "Name is required"),
       email: z.string().email("Invalid email address"),
     })))
     .mutation(async ({ input }) => {
-      return await db.user.createMany({
-        data: input.map((teacher) => ({
-          role: "TEACHER",
-          email: teacher.email,
-          name: teacher.name,
-          username: teacher.email,
-          teacher: {
-            create: {},
+      const upsertPromises = input.map((teacher) =>
+        db.user.upsert({
+          where: { email: teacher.email },
+          update: {
+            name: teacher.name,
           },
-        })),
-      });
+          create: {
+            role: "TEACHER",
+            email: teacher.email,
+            name: teacher.name,
+            username: teacher.email,
+            teacher: {
+              create: {},
+            },
+          },
+        })
+      );
+      return await Promise.all(upsertPromises);
     }),
 
   getFilteredRequests: publicProcedure
