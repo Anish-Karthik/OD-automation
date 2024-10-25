@@ -33,8 +33,21 @@ export const studentRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      return await db.user.create({
-        data: {
+      return await db.user.upsert({
+        where: { email: input.email! },
+        update: {
+          role: "STUDENT",
+          email: input.email,
+          name: input.name,
+          username: input.email,
+          student: {
+            create: {
+              ...input,
+              departmentId: input.departmentId,
+            },
+          },
+        },
+        create: {
           role: "STUDENT",
           email: input.email,
           name: input.name,
@@ -48,7 +61,7 @@ export const studentRouter = router({
         },
       });
     }),
-  
+
   createMany: publicProcedure
     .input(
       z.array(
@@ -66,9 +79,22 @@ export const studentRouter = router({
       )
     )
     .mutation(async ({ input }) => {
-      const studentsCreatePromises = input.map((student) => 
-        db.user.create({
-          data: {
+      const studentsCreatePromises = input.map((student) =>
+        db.user.upsert({
+          where: { email: student.email! },
+          update: {
+            role: "STUDENT",
+            email: student.email,
+            name: student.name,
+            username: student.email,
+            student: {
+              create: {
+                ...student,
+                departmentId: student.departmentId,
+              },
+            },
+          },
+          create: {
             role: "STUDENT",
             email: student.email,
             name: student.name,
