@@ -36,6 +36,7 @@ const origin = [
   // USEFUL to add production origins here
   "exp://localhost:8081",
   "http://localhost:5173",
+  "http://localhost:5174",
   "http://localhost:3001",
   "http://localhost:8081",
 ];
