@@ -20,6 +20,7 @@ export const teacherRouter = router({
       await db.teacher.findMany({
         select: {
           id: true,
+          userId: true,
           user: {
             select: {
               name: true,
@@ -30,6 +31,7 @@ export const teacherRouter = router({
       })
     ).map((teacher) => ({
       id: teacher.id,
+      userId: teacher.userId,
       name: teacher.user.name,
       email: teacher.user.email,
     }));
