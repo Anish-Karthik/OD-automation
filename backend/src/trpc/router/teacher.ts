@@ -35,6 +35,7 @@ export const teacherRouter = router({
   }),
   list: publicProcedure.query(async () => {
     const teachers: {
+      userId: string;
       id: string;
       name: string;
       email: string;
@@ -100,6 +101,7 @@ export const teacherRouter = router({
           id: teacher.id,
           name: teacher.user.name!,
           email: teacher.user.email!,
+          userId: teacher.user.id,
           ...extraData,
         });
       }
@@ -119,6 +121,7 @@ export const teacherRouter = router({
             name: teacher.user.name!,
             email: teacher.user.email!,
             role: "HOD",
+            userId: teacher.user.id,
             assignedTo: teacher.hodOf!.code,
             countOfStudents: cnt,
           });
