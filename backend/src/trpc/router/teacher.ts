@@ -4,6 +4,28 @@ import { db } from "../../lib/auth";
 import { publicProcedure, router } from "../index";
 import { teacherFormRouter } from "./teacher-form";
 
+const compareRoles = (a: string | null, b: string | null) => {
+  if (a === "HOD") {
+    return -1;
+  }
+  if (b === "HOD") {
+    return 1;
+  }
+  if (a === "YEAR_IN_CHARGE") {
+    return -1;
+  }
+  if (b === "YEAR_IN_CHARGE") {
+    return 1;
+  }
+  if (a === "TUTOR") {
+    return -1;
+  }
+  if (b === "TUTOR") {
+    return 1;
+  }
+  return 0;
+};
+
 export const teacherRouter = router({
   form: teacherFormRouter,
   get: publicProcedure.input(z.string()).query(async ({ input: id }) => {
@@ -14,27 +36,98 @@ export const teacherRouter = router({
   list: publicProcedure.query(async () => {
     const teachers: {
       id: string;
-      name: string | null;
-      email: string | null;
-    }[] = (
-      await db.teacher.findMany({
-        select: {
-          id: true,
-          userId: true,
-          user: {
-            select: {
-              name: true,
-              email: true,
-            },
+      name: string;
+      email: string;
+      role: "TUTOR" | "YEAR_IN_CHARGE" | "HOD" | null;
+      assignedTo: string | null;
+      countOfStudents: number | null;
+    }[] = [];
+    const allTeachers = await db.teacher.findMany({
+      include: {
+        user: true,
+        tutorOf: {
+          include: {
+            department: true,
           },
         },
-      })
-    ).map((teacher) => ({
-      id: teacher.id,
-      userId: teacher.userId,
-      name: teacher.user.name,
-      email: teacher.user.email,
-    }));
+        yearInChargeOf: {
+          include: {
+            department: true,
+          },
+        },
+        hodOf: true,
+      },
+    });
+    allTeachers.forEach((teacher) => {
+      const extraData: {
+        assignedTo: string | null;
+        countOfStudents: number;
+        role: "TUTOR" | "YEAR_IN_CHARGE" | "HOD" | null;
+      } = {
+        assignedTo: null,
+        countOfStudents: 0,
+        role: null,
+      };
+      if (teacher.tutorOf.length > 0) {
+        const student = teacher.tutorOf[0];
+        console.log(student);
+        const startingRollNo = teacher.tutorOf.reduce(
+          (acc, student) => Math.min(acc, student.rollno),
+          Number.MAX_SAFE_INTEGER
+        );
+        const endingRollNo = teacher.tutorOf.reduce(
+          (acc, student) => Math.max(acc, student.rollno),
+          Number.MIN_SAFE_INTEGER
+        );
+        extraData.assignedTo = `${student.department!.code}-${student.batch}-${
+          student.year
+        }-${student.semester}-${
+          student.section
+        }-${startingRollNo}-${endingRollNo}`;
+        extraData.countOfStudents = teacher.tutorOf.length;
+        extraData.role = "TUTOR";
+      }
+      if (teacher.yearInChargeOf.length > 0) {
+        const student = teacher.yearInChargeOf[0];
+        extraData.assignedTo = `${student.department!.code}-${student.batch}-${
+          student.year
+        }-${student.semester}`;
+        extraData.countOfStudents = teacher.yearInChargeOf.length;
+        extraData.role = "YEAR_IN_CHARGE";
+      }
+      if (!teacher.hodOf) {
+        teachers.push({
+          id: teacher.id,
+          name: teacher.user.name!,
+          email: teacher.user.email!,
+          ...extraData,
+        });
+      }
+    });
+
+    await Promise.all(
+      allTeachers
+        .filter((teacher) => teacher.hodOf)
+        .map(async (teacher) => {
+          const cnt = await db.student.count({
+            where: {
+              departmentId: teacher.hodOf!.id,
+            },
+          });
+          teachers.push({
+            id: teacher.id,
+            name: teacher.user.name!,
+            email: teacher.user.email!,
+            role: "HOD",
+            assignedTo: teacher.hodOf!.code,
+            countOfStudents: cnt,
+          });
+          return teacher;
+        })
+    );
+
+    teachers.sort((a, b) => compareRoles(a.role, b.role));
+
     return teachers;
   }),
 
