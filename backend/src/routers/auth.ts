@@ -258,6 +258,42 @@ authRouter.post("/resetPassword", async (req, res) => {
   }
 });
 
+authRouter.post("/changePassword", authMiddleware, async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    console.log("CHANGE PASSWORD", oldPassword, newPassword);
+    if (!oldPassword || !newPassword) {
+      return res
+        .status(400)
+        .json({ message: "Invalid old password or new password" });
+    }
+    const user = await db.user.findUnique({
+      where: { id: res.locals.user.id },
+    });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const isValidPassword = await new Argon2id().verify(
+      user.password!,
+      oldPassword
+    );
+    if (!isValidPassword) {
+      return res.status(401).json({ message: "Invalid old password" });
+    }
+    const hashedPassword = await new Argon2id().hash(newPassword);
+    await db.user.update({
+      where: { id: res.locals.user.id },
+      data: {
+        password: hashedPassword,
+      },
+    });
+    return res.status(201).json({ message: "Password changed successfully" });
+  } catch (error: any) {
+    console.log(error.message);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+})
+
 authRouter.post("/signup", async (req, res) => {
   // console.log("signup");
   try {
