@@ -58,8 +58,39 @@ export const studentRouter = router({
     });
   }),
 
+  incrementSemester: publicProcedure
+    .input(
+      z.object({
+        batch: z.string().min(1, "Batch is required"),
+        maxSemester: z
+          .string()
+          .min(1, "Max semester is required")
+          .refine((v) => {
+            return !isNaN(parseInt(v)) && parseInt(v) <= 12;
+          }),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const students = await db.student.findMany({
+        where: {
+          batch: input.batch,
+          semester: {
+            lte: parseInt(input.maxSemester),
+          },
+        },
+      });
 
+      const studentsUpdatePromises = students.map(async (student) => {
+        return await db.student.update({
+          where: { id: student.id },
+          data: {
+            semester: student.semester + 1,
+          },
+        });
+      });
 
+      return await Promise.all(studentsUpdatePromises);
+    }),
 
   create: publicProcedure
     .input(studentInputSchema)
