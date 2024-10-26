@@ -24,6 +24,38 @@ authRouter.post("/login", async (req, res) => {
       password
     );
     if (isValidPassword) {
+      if (!user.emailVerified) {
+        // send email verification mail
+        let vt = await db.verificationToken.findFirst({
+          where: {
+            email: user.username || user.email!,
+          },
+        });
+        
+        if (vt) {
+          vt = await db.verificationToken.upsert({
+            where: { id: vt.id },
+            update: {
+              expires: new Date(Date.now() + 1000 * 60 * 60 * 24),
+              token: randomBytes(16).toString("hex"),
+            },
+            create: {
+              expires: new Date(Date.now() + 1000 * 60 * 60 * 24),
+              token: randomBytes(16).toString("hex"),
+              email: user.username || user.email!,
+            },
+          });
+        }
+        // send email
+        // sendMail({
+        //   to: user.username || user.email!,
+        //   subject: "Email Verification",
+        //   text: `Click on the link to verify your email: http://localhost:3001/auth/verify?token=${vt?.token}`,
+        // });
+        return res
+          .status(403)
+          .json({ message: "Email not verified, mail has been sent" });
+      }
       const sessionId = randomBytes(12).toString("hex");
       const session = await lucia.createSession(user.id, {}, { sessionId });
       const sessionCookie = lucia.createSessionCookie(session.id);
