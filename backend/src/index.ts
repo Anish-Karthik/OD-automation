@@ -12,6 +12,7 @@ import { lookup } from "dns";
 import { hostname } from "os";
 import { promisify } from "util";
 export * as PrismaTypes from "@prisma/client";
+import { createContext } from "./trpc/index";
 // import bodyParser from "body-parser";
 
 const lookupAsync = promisify(lookup);
@@ -85,6 +86,7 @@ app.use(
 // Create tRPC server
 const trpcServer = createExpressMiddleware({
   router: appRouter,
+  createContext
 });
 // Apply the tRPC routes on the express app
 
