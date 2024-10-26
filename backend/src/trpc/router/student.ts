@@ -22,17 +22,25 @@ const upsertStudent = async (student: z.infer<typeof studentInputSchema>) => {
     email: student.email,
     name: student.name,
     username: student.email,
-    student: {
-      create: {
-        ...student,
-        departmentId: student.departmentId,
-      },
-    },
   };
   return await db.user.upsert({
     where: { email: student.email! },
-    update: data,
-    create: data,
+    update: {
+      ...data,
+      student: {
+        update: {
+          ...student,
+        },
+      },
+    },
+    create: {
+      ...data,
+      student: {
+        create: {
+          ...student,
+        },
+      },
+    },
   });
 };
 
