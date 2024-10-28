@@ -1,11 +1,10 @@
 import { Prisma, Student } from "@prisma/client";
+import generatePassword from "generate-password";
+import { Argon2id } from "oslo/password";
 import { z } from "zod";
 import { db } from "../../lib/auth";
 import { adminProcedure, router } from "../index";
 import { studentFormRouter } from "./student-form";
-import { password } from "bun";
-import generatePassword from "generate-password";
-import { Argon2id } from "oslo/password";
 
 const studentInputSchema = z.object({
   rollno: z.number(),
