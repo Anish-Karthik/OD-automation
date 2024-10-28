@@ -1,10 +1,10 @@
 import { z } from "zod"
 
-import { publicProcedure, router } from "../index"
 import { db } from "../../lib/auth"
+import { adminProcedure, router } from "../index"
 
 export const collegeRouter = router({
-  update: publicProcedure
+  update: adminProcedure
     .input(
       z.object({
         id: z.string(),

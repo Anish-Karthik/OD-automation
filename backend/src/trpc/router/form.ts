@@ -1,19 +1,14 @@
-import { publicProcedure, router } from "../index";
+import z from "zod";
 import { db } from "../../lib/auth";
-import z from "zod"; 
-import { Form } from "@prisma/client";
+import { protectedProcedure, router } from "../index";
 
 export const formRouter = router({
-  get: publicProcedure.input(z.string()).query(async ({ input: id }) => {
+  get: protectedProcedure.input(z.string()).query(async ({ input: id, ctx }) => {
+    if (ctx.user?.id !== id) {
+      throw new Error("Unauthorized");
+    }
     return await db.form.findUnique({
       where: { id },
-      include: {
-        requests: true,
-      }
-    })
-  }),
-  list: publicProcedure.query(async () => {
-    return await db.form.findMany({
       include: {
         requests: true,
       }
