@@ -95,11 +95,15 @@ export const studentRouter = router({
         },
       });
 
+      // increment year of students if current semester is even
+      const year = students[0].year + (students[0].semester % 2 === 0 ? 1 : 0);
+
       const studentsUpdatePromises = students.map(async (student) => {
         return await db.student.update({
           where: { id: student.id },
           data: {
             semester: student.semester + 1,
+            year,
           },
         });
       });
