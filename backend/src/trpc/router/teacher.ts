@@ -1,7 +1,7 @@
 import { Prisma, Teacher } from "@prisma/client";
 import { z } from "zod";
 import { db } from "../../lib/auth";
-import { publicProcedure, router,protectedProcedure } from "../index";
+import { publicProcedure, router, protectedProcedure } from "../index";
 import { teacherFormRouter } from "./teacher-form";
 
 const compareRoles = (a: string | null, b: string | null) => {
@@ -25,6 +25,77 @@ const compareRoles = (a: string | null, b: string | null) => {
   }
   return 0;
 };
+
+const TutorSchema = z.object({
+  role: z.literal("TUTOR"),
+  teacherId: z.string().min(1, "Teacher is required"),
+  departmentId: z.string().min(1, "Department is required"),
+  batch: z.string().min(1, "Batch is required"),
+  year: z.union([z.enum(["1", "2", "3", "4"]), z.string().regex(/^[5-6]$/)]),
+  semester: z.enum(["1", "2", "3", "4", "5", "6", "7", "8"]),
+  section: z.union([
+    z.enum(["A", "B", "C", "D"]),
+    z.string().min(1, "Section is required"),
+  ]),
+  startRollNo: z.number().min(1, "Start Roll No is required"),
+  endRollNo: z.number().min(1, "End Roll No is required"),
+});
+
+const YearInChargeSchema = z.object({
+  role: z.literal("YEAR_IN_CHARGE"),
+  teacherId: z.string().min(1, "Teacher is required"),
+  departmentId: z.string().min(1, "Department is required"),
+  batch: z.string().min(1, "Batch is required"),
+  year: z.union([z.enum(["1", "2", "3", "4"]), z.string().regex(/^[5-6]$/)]),
+  semester: z.enum(["1", "2", "3", "4", "5", "6", "7", "8"]),
+});
+
+const HodSchema = z.object({
+  role: z.literal("HOD"),
+  teacherId: z.string().min(1, "Teacher is required"),
+  departmentId: z.string().min(1, "Department is required"),
+});
+
+const TeacherSchema = z.discriminatedUnion("role", [
+  TutorSchema,
+  YearInChargeSchema,
+  HodSchema,
+]);
+
+type TeacherComplexType = z.infer<typeof TeacherSchema>;
+
+type DetailedTeacherRoleInfo =
+  | {
+      role: "TUTOR";
+      teacher: string;
+      assignedTo: string;
+      countOfStudents: number;
+      department: string;
+      batch: string;
+      year: number;
+      semester: number;
+      section: string;
+      startRollNo: number;
+      endingRollNo: number;
+    }
+  | {
+      role: "YEAR_IN_CHARGE";
+      teacher: string;
+      assignedTo: string;
+      countOfStudents: number;
+      department: string;
+      batch: string;
+      year: number;
+      semester: number;
+    }
+  | {
+      role: "HOD";
+      teacher: string;
+      assignedTo: string;
+      countOfStudents: number;
+      department: string;
+    }
+  | null;
 
 export const teacherRouter = router({
   form: teacherFormRouter,
@@ -204,65 +275,40 @@ export const teacherRouter = router({
     }),
 
   assignRole: publicProcedure
-    .input(
-      z
-        .discriminatedUnion("role", [
-          z.object({
-            role: z.literal("TUTOR"),
-            teacherId: z.string().min(1, "Teacher is required"),
-            departmentId: z.string().min(1, "Department is required"),
-            batch: z.string().min(1, "Batch is required"),
-            year: z.union([
-              z.enum(["1", "2", "3", "4"]),
-              z.string().regex(/^[5-6]$/),
-            ]),
-            semester: z.enum(["1", "2", "3", "4", "5", "6", "7", "8"]),
-            section: z.union([
-              z.enum(["A", "B", "C", "D"]),
-              z.string().min(1, "Section is required"),
-            ]),
-            startRollNo: z.number().min(1, "Start Roll No is required"),
-            endRollNo: z.number().min(1, "End Roll No is required"),
-          }),
-          z.object({
-            role: z.literal("YEAR_IN_CHARGE"),
-            teacherId: z.string().min(1, "Teacher is required"),
-            departmentId: z.string().min(1, "Department is required"),
-            batch: z.string().min(1, "Batch is required"),
-            year: z.union([
-              z.enum(["1", "2", "3", "4"]),
-              z.string().regex(/^[5-6]$/),
-            ]),
-            semester: z.enum(["1", "2", "3", "4", "5", "6", "7", "8"]),
-          }),
-          z.object({
-            role: z.literal("HOD"),
-            teacherId: z.string().min(1, "Teacher is required"),
-            departmentId: z.string().min(1, "Department is required"),
-          }),
-        ])
-        .refine(
-          (data) => {
-            if (data.role === "TUTOR" || data.role === "YEAR_IN_CHARGE") {
-              const year = Number.parseInt(data.year);
-              const semester = Number.parseInt(data.semester);
-              return (
-                (year === 1 && (semester === 1 || semester === 2)) ||
-                (year === 2 && (semester === 3 || semester === 4)) ||
-                (year === 3 && (semester === 5 || semester === 6)) ||
-                (year === 4 && (semester === 7 || semester === 8)) ||
-                (year >= 5 && semester >= 1 && semester <= 8)
-              );
-            }
-            return true;
-          },
-          {
-            message: "Invalid year and semester combination",
-            path: ["semester"],
-          }
-        )
-    )
+    .input(TeacherSchema)
     .mutation(async ({ input }) => {
+      // Check if the teacher exists with role, if yes, unassign the role
+      // Check if another teacher is assigned to the same role, if yes, unassign the role
+      const teacher = await db.teacher.findUnique({
+        where: { id: input.teacherId },
+        include: {
+          tutorOf: {
+            include: {
+              department: true,
+            },
+          },
+          yearInChargeOf: {
+            include: {
+              department: true,
+            },
+          },
+          hodOf: true,
+        },
+      });
+      // get teacher's current role
+      // @ts-ignore
+      const currentRole = getTeacherRole(teacher);
+      // check if another teacher exists with the same criteria
+      if (currentRole) {
+        await handleUnassign(input);
+        const anotherTeacher =
+          await checkIfAnotherTeacherExistsWithSameCriteria(currentRole);
+        if (anotherTeacher) {
+          // @ts-expect-error: make sure to match the type with zod
+          await handleUnassign(currentRole as typeof input);
+        }
+      }
+
       if (input.role === "HOD") {
         return await db.teacher.update({
           where: { id: input.teacherId },
@@ -317,3 +363,201 @@ export const teacherRouter = router({
       throw new Error("Invalid role");
     }),
 });
+
+async function handleUnassign(input: TeacherComplexType) {
+  if (input.role === "HOD") {
+    return await db.teacher.update({
+      where: { id: input.teacherId },
+      data: {
+        departmentId: null,
+      },
+    });
+  }
+
+  const studentsWhere: Prisma.StudentWhereInput = {
+    departmentId: input.departmentId,
+    batch: input.batch,
+    year: Number.parseInt(input.year),
+    semester: Number.parseInt(input.semester),
+  };
+  if (input.role === "TUTOR") {
+    studentsWhere.section = input.section;
+    studentsWhere.rollno = {
+      gte: input.startRollNo,
+      lte: input.endRollNo,
+    };
+  }
+  const students = await db.student.findMany({
+    where: studentsWhere,
+  });
+
+  if (students.length === 0) {
+    throw new Error("No students found with the given criteria");
+  }
+
+  if (input.role === "TUTOR") {
+    return await db.teacher.update({
+      where: { id: input.teacherId },
+      data: {
+        tutorOf: {
+          disconnect: students.map((student) => ({ id: student.id })),
+        },
+      },
+    });
+  }
+
+  if (input.role === "YEAR_IN_CHARGE") {
+    return await db.teacher.update({
+      where: { id: input.teacherId },
+      data: {
+        yearInChargeOf: {
+          disconnect: students.map((student) => ({ id: student.id })),
+        },
+      },
+    });
+  }
+
+  throw new Error("Invalid role");
+}
+
+function getTeacherRole(
+  teacher: Teacher & {
+    tutorOf: {
+      department: {
+        code: string;
+      };
+      batch: string;
+      year: number;
+      semester: number;
+      section: string;
+      rollno: number;
+    }[];
+    yearInChargeOf: {
+      department: {
+        code: string;
+      };
+      batch: string;
+      year: number;
+      semester: number;
+    }[];
+    hodOf: {
+      code: string;
+    } | null;
+  }
+): DetailedTeacherRoleInfo {
+  if (teacher.tutorOf.length > 0) {
+    const student = teacher.tutorOf[0];
+    const startingRollNo = teacher.tutorOf.reduce(
+      (acc, student) => Math.min(acc, student.rollno),
+      Number.MAX_SAFE_INTEGER
+    );
+    const endingRollNo = teacher.tutorOf.reduce(
+      (acc, student) => Math.max(acc, student.rollno),
+      Number.MIN_SAFE_INTEGER
+    );
+    return {
+      role: "TUTOR",
+      teacher: teacher.id,
+      assignedTo: `${student.department.code}-${student.batch}-${student.year}-${student.semester}-${student.section}-${startingRollNo}-${endingRollNo}`,
+      countOfStudents: teacher.tutorOf.length,
+      department: student.department.code,
+      batch: student.batch,
+      year: student.year,
+      semester: student.semester,
+      section: student.section,
+      startRollNo: startingRollNo,
+      endingRollNo: endingRollNo,
+    };
+  }
+  if (teacher.yearInChargeOf.length > 0) {
+    const student = teacher.yearInChargeOf[0];
+    return {
+      role: "YEAR_IN_CHARGE",
+      assignedTo: `${student.department.code}-${student.batch}-${student.year}-${student.semester}`,
+      teacher: teacher.id,
+      countOfStudents: teacher.yearInChargeOf.length,
+      department: student.department.code,
+      batch: student.batch,
+      year: student.year,
+      semester: student.semester,
+    };
+  }
+  if (teacher.hodOf) {
+    return {
+      role: "HOD",
+      teacher: teacher.id,
+      assignedTo: teacher.hodOf.code,
+      countOfStudents: 0,
+      department: teacher.hodOf.code,
+    };
+  }
+  return null;
+}
+
+async function checkIfAnotherTeacherExistsWithSameCriteria(
+  input: DetailedTeacherRoleInfo
+) {
+  if (input === null) {
+    return;
+  }
+  if (input.role === "HOD") {
+    const teacher = await db.teacher.findFirst({
+      where: {
+        hodOf: {
+          code: input.assignedTo,
+        },
+      },
+    });
+    return teacher;
+  }
+  const studentsWhere: Prisma.StudentWhereInput = {
+    departmentId: input.assignedTo,
+    batch: input.batch,
+    year: input.year,
+    semester: input.semester,
+  };
+  if (input.role === "TUTOR") {
+    studentsWhere.section = input.section;
+    studentsWhere.rollno = {
+      gte: input.startRollNo,
+      lte: input.endingRollNo,
+    };
+  }
+  const students = await db.student.findMany({
+    where: studentsWhere,
+  });
+  if (students.length === 0) {
+    return null;
+  }
+  if (input.role === "TUTOR") {
+    const teacher = await db.teacher.findFirst({
+      where: {
+        tutorOf: {
+          some: {
+            id: {
+              in: students.map((student) => student.id),
+            },
+          },
+        },
+      },
+    });
+    return teacher;
+  }
+
+  if (input.role === "YEAR_IN_CHARGE") {
+    const teacher = await db.teacher.findFirst({
+      where: {
+        yearInChargeOf: {
+          some: {
+            id: {
+              in: students.map((student) => student.id),
+            },
+          },
+        },
+      },
+    });
+    return teacher;
+  }
+
+  return null;
+}
