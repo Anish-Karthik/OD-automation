@@ -1,4 +1,4 @@
-import { Department, Prisma, Teacher } from "@prisma/client";
+import { Department, Prisma, Student, Teacher } from "@prisma/client";
 import { z } from "zod";
 import { db } from "../../lib/auth";
 import { publicProcedure, router, protectedProcedure } from "../index";
@@ -63,6 +63,18 @@ const TeacherSchema = z.discriminatedUnion("role", [
 ]);
 
 type TeacherComplexType = z.infer<typeof TeacherSchema>;
+
+type FullTeacher =
+  | (Teacher & {
+      tutorOf: (Student & {
+        department: Department | null;
+      })[];
+      yearInChargeOf: (Student & {
+        department: Department | null;
+      })[];
+      hodOf: Department | null;
+    })
+  | null;
 
 export const teacherRouter = router({
   form: teacherFormRouter,
@@ -246,7 +258,7 @@ export const teacherRouter = router({
     .mutation(async ({ input }) => {
       // Check if the teacher exists with role, if yes, unassign the role
       // Check if another teacher is assigned to the same role, if yes, unassign the role
-      const teacher = await db.teacher.findUnique({
+      const teacher: FullTeacher = await db.teacher.findUnique({
         where: { id: input.teacherId },
         include: {
           tutorOf: {
@@ -263,7 +275,6 @@ export const teacherRouter = router({
         },
       });
       // get teacher's current role
-      // @ts-ignore
       const currentRole = getTeacherRole(teacher);
       // check if another teacher exists with the same criteria
       if (currentRole) {
@@ -387,24 +398,11 @@ async function handleUnassign(input: TeacherComplexType) {
 }
 
 function getTeacherRole(
-  teacher: Teacher & {
-    tutorOf: {
-      department: Department;
-      batch: string;
-      year: number;
-      semester: number;
-      section: string;
-      rollno: number;
-    }[];
-    yearInChargeOf: {
-      department: Department;
-      batch: string;
-      year: number;
-      semester: number;
-    }[];
-    hodOf: Department | null;
-  }
+  teacher: FullTeacher
 ): TeacherComplexType | null {
+  if (!teacher) {
+    return null;
+  }
   if (teacher.tutorOf.length > 0) {
     const student = teacher.tutorOf[0];
     const startingRollNo = teacher.tutorOf.reduce(
@@ -418,8 +416,8 @@ function getTeacherRole(
     return {
       role: "TUTOR",
       teacherId: teacher.id,
-      departmentId: student.department.code,
-      batch: student.batch,
+      departmentId: student.department!.code,
+      batch: student.batch!,
       year: student.year.toString(),
       semester: student.semester as any,
       section: student.section,
@@ -432,8 +430,8 @@ function getTeacherRole(
     return {
       role: "YEAR_IN_CHARGE",
       teacherId: teacher.id,
-      departmentId: student.department.code,
-      batch: student.batch,
+      departmentId: student.department!.code,
+      batch: student.batch!,
       year: student.year.toString(),
       semester: student.semester as any,
     };
