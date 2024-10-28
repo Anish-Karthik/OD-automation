@@ -1,4 +1,4 @@
-import { Prisma, Teacher } from "@prisma/client";
+import { Department, Prisma, Teacher } from "@prisma/client";
 import { z } from "zod";
 import { db } from "../../lib/auth";
 import { publicProcedure, router, protectedProcedure } from "../index";
@@ -63,39 +63,6 @@ const TeacherSchema = z.discriminatedUnion("role", [
 ]);
 
 type TeacherComplexType = z.infer<typeof TeacherSchema>;
-
-type DetailedTeacherRoleInfo =
-  | {
-      role: "TUTOR";
-      teacher: string;
-      assignedTo: string;
-      countOfStudents: number;
-      department: string;
-      batch: string;
-      year: number;
-      semester: number;
-      section: string;
-      startRollNo: number;
-      endingRollNo: number;
-    }
-  | {
-      role: "YEAR_IN_CHARGE";
-      teacher: string;
-      assignedTo: string;
-      countOfStudents: number;
-      department: string;
-      batch: string;
-      year: number;
-      semester: number;
-    }
-  | {
-      role: "HOD";
-      teacher: string;
-      assignedTo: string;
-      countOfStudents: number;
-      department: string;
-    }
-  | null;
 
 export const teacherRouter = router({
   form: teacherFormRouter,
@@ -304,8 +271,7 @@ export const teacherRouter = router({
         const anotherTeacher =
           await checkIfAnotherTeacherExistsWithSameCriteria(currentRole);
         if (anotherTeacher) {
-          // @ts-expect-error: make sure to match the type with zod
-          await handleUnassign(currentRole as typeof input);
+          await handleUnassign(currentRole);
         }
       }
 
@@ -423,9 +389,7 @@ async function handleUnassign(input: TeacherComplexType) {
 function getTeacherRole(
   teacher: Teacher & {
     tutorOf: {
-      department: {
-        code: string;
-      };
+      department: Department;
       batch: string;
       year: number;
       semester: number;
@@ -433,18 +397,14 @@ function getTeacherRole(
       rollno: number;
     }[];
     yearInChargeOf: {
-      department: {
-        code: string;
-      };
+      department: Department;
       batch: string;
       year: number;
       semester: number;
     }[];
-    hodOf: {
-      code: string;
-    } | null;
+    hodOf: Department | null;
   }
-): DetailedTeacherRoleInfo {
+): TeacherComplexType | null {
   if (teacher.tutorOf.length > 0) {
     const student = teacher.tutorOf[0];
     const startingRollNo = teacher.tutorOf.reduce(
@@ -457,45 +417,39 @@ function getTeacherRole(
     );
     return {
       role: "TUTOR",
-      teacher: teacher.id,
-      assignedTo: `${student.department.code}-${student.batch}-${student.year}-${student.semester}-${student.section}-${startingRollNo}-${endingRollNo}`,
-      countOfStudents: teacher.tutorOf.length,
-      department: student.department.code,
+      teacherId: teacher.id,
+      departmentId: student.department.code,
       batch: student.batch,
-      year: student.year,
-      semester: student.semester,
+      year: student.year.toString(),
+      semester: student.semester as any,
       section: student.section,
       startRollNo: startingRollNo,
-      endingRollNo: endingRollNo,
+      endRollNo: endingRollNo,
     };
   }
   if (teacher.yearInChargeOf.length > 0) {
     const student = teacher.yearInChargeOf[0];
     return {
       role: "YEAR_IN_CHARGE",
-      assignedTo: `${student.department.code}-${student.batch}-${student.year}-${student.semester}`,
-      teacher: teacher.id,
-      countOfStudents: teacher.yearInChargeOf.length,
-      department: student.department.code,
+      teacherId: teacher.id,
+      departmentId: student.department.code,
       batch: student.batch,
-      year: student.year,
-      semester: student.semester,
+      year: student.year.toString(),
+      semester: student.semester as any,
     };
   }
   if (teacher.hodOf) {
     return {
       role: "HOD",
-      teacher: teacher.id,
-      assignedTo: teacher.hodOf.code,
-      countOfStudents: 0,
-      department: teacher.hodOf.code,
+      teacherId: teacher.id,
+      departmentId: teacher.hodOf.id,
     };
   }
   return null;
 }
 
 async function checkIfAnotherTeacherExistsWithSameCriteria(
-  input: DetailedTeacherRoleInfo
+  input: TeacherComplexType
 ) {
   if (input === null) {
     return;
@@ -504,23 +458,23 @@ async function checkIfAnotherTeacherExistsWithSameCriteria(
     const teacher = await db.teacher.findFirst({
       where: {
         hodOf: {
-          code: input.assignedTo,
+          id: input.departmentId,
         },
       },
     });
     return teacher;
   }
   const studentsWhere: Prisma.StudentWhereInput = {
-    departmentId: input.assignedTo,
+    departmentId: input.departmentId,
     batch: input.batch,
-    year: input.year,
-    semester: input.semester,
+    year: Number(input.year),
+    semester: input.semester as any,
   };
   if (input.role === "TUTOR") {
     studentsWhere.section = input.section;
     studentsWhere.rollno = {
       gte: input.startRollNo,
-      lte: input.endingRollNo,
+      lte: input.endRollNo,
     };
   }
   const students = await db.student.findMany({
