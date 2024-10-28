@@ -248,6 +248,7 @@ authRouter.post("/resetPassword", async (req, res) => {
       where: { email },
       data: {
         password: hashedPassword,
+        emailVerified: new Date(),
       },
     });
     return res
