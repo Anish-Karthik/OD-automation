@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { publicProcedure, router } from "../index";
+import { adminProcedure, protectedProcedure, publicProcedure, router } from "../index";
 import { db } from "../../lib/auth";
 
 export const departmentRouter = router({
-  getAll: publicProcedure.query(async ({}) => {
+  getAll: protectedProcedure.query(async ({}) => {
     return await db.department.findMany();
   }),
-  create: publicProcedure
+  create: adminProcedure
     .input(
       z.object({
         name: z.string(),
@@ -16,7 +16,7 @@ export const departmentRouter = router({
     .mutation(async ({ input: { name, code } }) => {
       return await db.department.create({ data: { name, code } });
     }),
-  update: publicProcedure
+  update: adminProcedure
     .input(
       z.object({
         id: z.string(),
