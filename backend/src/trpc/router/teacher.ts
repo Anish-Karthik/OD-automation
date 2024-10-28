@@ -1,7 +1,7 @@
 import { Department, Prisma, Student, Teacher } from "@prisma/client";
 import { z } from "zod";
 import { db } from "../../lib/auth";
-import { publicProcedure, router, protectedProcedure } from "../index";
+import { publicProcedure, router, protectedProcedure, adminProcedure } from "../index";
 import { teacherFormRouter } from "./teacher-form";
 
 const compareRoles = (a: string | null, b: string | null) => {
@@ -83,7 +83,7 @@ export const teacherRouter = router({
       where: { id },
     });
   }),
-  list: publicProcedure.query(async () => {
+  list: adminProcedure.query(async () => {
     const teachers: {
       userId: string;
       id: string;
