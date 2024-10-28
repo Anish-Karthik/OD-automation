@@ -1,7 +1,7 @@
 import { Department, Prisma, Student, Teacher } from "@prisma/client";
 import { z } from "zod";
 import { db } from "../../lib/auth";
-import { publicProcedure, router, protectedProcedure, adminProcedure } from "../index";
+import { adminProcedure, router } from "../index";
 import { teacherFormRouter } from "./teacher-form";
 
 const compareRoles = (a: string | null, b: string | null) => {
@@ -78,11 +78,12 @@ type FullTeacher =
 
 export const teacherRouter = router({
   form: teacherFormRouter,
-  get: publicProcedure.input(z.string()).query(async ({ input: id }) => {
+  get: adminProcedure.input(z.string()).query(async ({ input: id }) => {
     return await db.teacher.findUnique({
       where: { id },
     });
   }),
+
   list: adminProcedure.query(async () => {
     const teachers: {
       userId: string;
@@ -184,7 +185,7 @@ export const teacherRouter = router({
     return teachers;
   }),
 
-  create: publicProcedure
+  create: adminProcedure
     .input(
       z.object({
         id: z.string().optional(),
@@ -210,7 +211,7 @@ export const teacherRouter = router({
       });
     }),
 
-  createMany: publicProcedure
+  createMany: adminProcedure
     .input(
       z.array(
         z.object({
@@ -241,7 +242,7 @@ export const teacherRouter = router({
       return await Promise.all(upsertPromises);
     }),
 
-  getFilteredRequests: publicProcedure
+  getFilteredRequests: adminProcedure
     .input(
       z.object({
         filters: z.custom<Partial<Teacher>>().optional(),
@@ -253,7 +254,7 @@ export const teacherRouter = router({
       return await db.teacher.findMany({});
     }),
 
-  assignRole: publicProcedure
+  assignRole: adminProcedure
     .input(TeacherSchema)
     .mutation(async ({ input }) => {
       // Check if the teacher exists with role, if yes, unassign the role
@@ -397,9 +398,7 @@ async function handleUnassign(input: TeacherComplexType) {
   throw new Error("Invalid role");
 }
 
-function getTeacherRole(
-  teacher: FullTeacher
-): TeacherComplexType | null {
+function getTeacherRole(teacher: FullTeacher): TeacherComplexType | null {
   if (!teacher) {
     return null;
   }
