@@ -20,7 +20,7 @@ export const studentFormRouter = router({
       },
     });
   }),
-  create: publicProcedure
+  create: protectedProcedure
     .input(
       z.object({
         reason: z.string(),
