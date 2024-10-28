@@ -1,7 +1,7 @@
 import { Prisma, Teacher } from "@prisma/client";
 import { z } from "zod";
 import { db } from "../../lib/auth";
-import { publicProcedure, router } from "../index";
+import { publicProcedure, router,protectedProcedure } from "../index";
 import { teacherFormRouter } from "./teacher-form";
 
 const compareRoles = (a: string | null, b: string | null) => {

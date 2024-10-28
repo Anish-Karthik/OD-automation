@@ -3,6 +3,10 @@ import { z } from "zod";
 import { db } from "../../lib/auth";
 import { publicProcedure, router } from "../index";
 import { studentFormRouter } from "./student-form";
+import { password } from "bun";
+import generatePassword from 'generate-password';
+import { Argon2id } from "oslo/password";
+
 
 const studentInputSchema = z.object({
   rollno: z.number(),
@@ -17,11 +21,22 @@ const studentInputSchema = z.object({
 });
 
 const upsertStudent = async (student: z.infer<typeof studentInputSchema>) => {
+  const randomPassword = generatePassword.generate({
+    length: 12,           
+    numbers: true,       
+    symbols: true,       
+    uppercase: true,      
+    lowercase: true,        
+  });
+  
+  const hashedPassword =await new Argon2id().hash(randomPassword);
+
   const data: any = {
     role: "STUDENT",
     email: student.email,
     name: student.name,
     username: student.email,
+    password:hashedPassword,
   };
   return await db.user.upsert({
     where: { email: student.email! },
