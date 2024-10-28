@@ -144,27 +144,28 @@ authRouter.post("/forgotPassword", async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-    let optVerification = await db.otp.findFirst({
-      where: {
+    // let optVerification = await db.otp.findFirst({
+    //   where: {
+    //     email,
+    //   },
+    // });
+    const otp = generateOTP();
+    const expires = new Date(Date.now() + 1000 * 60 * 5);
+
+    const optVerification = await db.otp.upsert({
+      where: { email }, // Use email as a unique identifier for simplicity
+      update: {
+        otp,
+        expires,
+        verifiedAt: null,
+      },
+      create: {
         email,
+        otp,
+        expires,
       },
     });
-    const otp = generateOTP();
-    if (optVerification) {
-      optVerification = await db.otp.upsert({
-        where: { id: optVerification.id },
-        update: {
-          expires: new Date(Date.now() + 1000 * 60 * 5),
-          otp,
-          verifiedAt: null,
-        },
-        create: {
-          expires: new Date(Date.now() + 1000 * 60 * 5),
-          otp,
-          email,
-        },
-      });
-    }
+
     // send email
     sendEmail({
       to: email,
@@ -292,7 +293,7 @@ authRouter.post("/changePassword", authMiddleware, async (req, res) => {
     console.log(error.message);
     return res.status(500).json({ message: "Internal server error" });
   }
-})
+});
 
 authRouter.post("/signup", async (req, res) => {
   // console.log("signup");
