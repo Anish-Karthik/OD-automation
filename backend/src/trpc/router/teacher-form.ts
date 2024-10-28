@@ -1,11 +1,14 @@
-import { publicProcedure, router } from "../index";
+import { protectedProcedure, router } from "../index";
 import { db } from "../../lib/auth";
 import z from "zod";
 import { Form, FormType } from "@prisma/client";
 import { createRequest } from "../../actions/request";
 
 export const teacherFormRouter = router({
-  list: publicProcedure.input(z.string()).query(async ({ input: userId }) => {
+  list: protectedProcedure.input(z.string()).query(async ({ input: userId, ctx }) => {
+    if (ctx.user?.id !== userId) {
+      throw new Error("Unauthorized");
+    }
     return await db.form.findMany({
       where: {
         requests: {
@@ -28,7 +31,7 @@ export const teacherFormRouter = router({
       },
     });
   }),
-  acceptOrReject: publicProcedure
+  acceptOrReject: protectedProcedure
     .input(
       z.object({
         requesterId: z.string(),
@@ -38,7 +41,10 @@ export const teacherFormRouter = router({
         reasonForRejection: z.string().nullish(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      if (ctx.user?.id !== input.requestedId) {
+        throw new Error("Unauthorized");
+      }
       const request = await db.request.update({
         where: {
           id: input.requestId,
