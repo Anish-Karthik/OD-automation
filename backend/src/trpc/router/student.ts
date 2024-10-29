@@ -1,12 +1,10 @@
 import { Prisma, Student } from "@prisma/client";
+import generatePassword from "generate-password";
+import { Argon2id } from "oslo/password";
 import { z } from "zod";
 import { db } from "../../lib/auth";
-import { publicProcedure, router } from "../index";
+import { adminProcedure, router } from "../index";
 import { studentFormRouter } from "./student-form";
-import { password } from "bun";
-import generatePassword from 'generate-password';
-import { Argon2id } from "oslo/password";
-
 
 const studentInputSchema = z.object({
   rollno: z.number(),
@@ -22,21 +20,21 @@ const studentInputSchema = z.object({
 
 const upsertStudent = async (student: z.infer<typeof studentInputSchema>) => {
   const randomPassword = generatePassword.generate({
-    length: 12,           
-    numbers: true,       
-    symbols: true,       
-    uppercase: true,      
-    lowercase: true,        
+    length: 12,
+    numbers: true,
+    symbols: true,
+    uppercase: true,
+    lowercase: true,
   });
-  
-  const hashedPassword =await new Argon2id().hash(randomPassword);
+
+  const hashedPassword = await new Argon2id().hash(randomPassword);
 
   const data: any = {
     role: "STUDENT",
     email: student.email,
     name: student.name,
     username: student.email,
-    password:hashedPassword,
+    password: hashedPassword,
   };
   return await db.user.upsert({
     where: { email: student.email! },
@@ -61,19 +59,19 @@ const upsertStudent = async (student: z.infer<typeof studentInputSchema>) => {
 
 export const studentRouter = router({
   form: studentFormRouter,
-  get: publicProcedure.input(z.string()).query(async ({ input: id }) => {
+  get: adminProcedure.input(z.string()).query(async ({ input: id }) => {
     return await db.student.findUnique({
       where: { id },
       include: { department: true },
     });
   }),
-  list: publicProcedure.query(async () => {
+  list: adminProcedure.query(async () => {
     return await db.student.findMany({
       include: { department: true },
     });
   }),
 
-  incrementSemester: publicProcedure
+  incrementSemester: adminProcedure
     .input(
       z.object({
         batch: z.string().min(1, "Batch is required"),
@@ -111,20 +109,20 @@ export const studentRouter = router({
       return await Promise.all(studentsUpdatePromises);
     }),
 
-  create: publicProcedure
+  create: adminProcedure
     .input(studentInputSchema)
     .mutation(async ({ input }) => {
       return await upsertStudent(input);
     }),
 
-  createMany: publicProcedure
+  createMany: adminProcedure
     .input(z.array(studentInputSchema))
     .mutation(async ({ input }) => {
       const studentsCreatePromises = input.map(upsertStudent);
       return await Promise.all(studentsCreatePromises);
     }),
 
-  getFilteredRequests: publicProcedure
+  getFilteredRequests: adminProcedure
     .input(
       z.object({
         filters: z.custom<Partial<Student>>().optional(),
