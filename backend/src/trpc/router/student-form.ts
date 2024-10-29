@@ -15,7 +15,7 @@ export const studentFormRouter = router({
           },
         },
       },
-    });
+    }); 
   }),
   create: publicProcedure
     .input(
