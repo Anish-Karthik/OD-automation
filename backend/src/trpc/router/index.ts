@@ -4,6 +4,7 @@ import { collegeRouter } from "./college";
 import { departmentRouter } from "./department";
 
 import { formRouter } from "./form";
+import { subjectRouter } from "./subject";
 
 import { userRouter } from "./user";
 
@@ -18,4 +19,5 @@ export const appRouter = router({
   form: formRouter,
   college: collegeRouter,
   department: departmentRouter,
+  subject: subjectRouter,
 });
