@@ -33,7 +33,9 @@ authRouter.post("/login", async (req, res) => {
       user.password!,
       password
     );
+    console.log("isValidPassword", isValidPassword,user,user.emailVerified);
     if (isValidPassword) {
+      console.log(user);
       if (!user.emailVerified) {
         // send email verification mail
         let optVerification = await db.otp.findFirst({
@@ -41,6 +43,7 @@ authRouter.post("/login", async (req, res) => {
             email: user.username || user.email!,
           },
         });
+
         const otp = generateOTP();
         if (optVerification) {
           optVerification = await db.otp.upsert({

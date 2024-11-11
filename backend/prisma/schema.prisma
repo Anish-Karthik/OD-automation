@@ -141,7 +141,7 @@ model Form {
   reason   String
   dates    DateTime[]
 
-  requester   User   @relation(fields: [requesterId], references: [id])
+  requester   User   @relation(fields: [requesterId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   requesterId String @db.ObjectId
 
   formType FormType  @default(ON_DUTY)
@@ -159,10 +159,10 @@ model Request {
   createdAt DateTime @default(now())
 
   status             RequestStatus
-  requested          User          @relation(fields: [requestedId], references: [id])
+  requested          User          @relation(fields: [requestedId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   reasonForRejection String?
 
-  form        Form   @relation(fields: [formId], references: [id])
+  form        Form   @relation(fields: [formId], references: [id],onDelete: Cascade, onUpdate: Cascade)
   formId      String @db.ObjectId
   requestedId String @db.ObjectId
 }
