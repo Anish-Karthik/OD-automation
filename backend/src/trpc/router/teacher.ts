@@ -1,8 +1,9 @@
 import { Department, Prisma, Student, Teacher } from "@prisma/client";
 import { z } from "zod";
 import { db } from "../../lib/auth";
-import { adminProcedure, router } from "../index";
+import { publicProcedure, router, protectedProcedure, adminProcedure } from "../index";
 import { teacherFormRouter } from "./teacher-form";
+import { create } from "domain";
 
 const compareRoles = (a: string | null, b: string | null) => {
   if (a === "HOD") {
@@ -76,28 +77,13 @@ type FullTeacher =
     })
   | null;
 
-const teacherInclude: Prisma.TeacherInclude = {
-  tutorOf: {
-    include: {
-      department: true,
-    },
-  },
-  yearInChargeOf: {
-    include: {
-      department: true,
-    },
-  },
-  hodOf: true,
-};
-
 export const teacherRouter = router({
   form: teacherFormRouter,
-  get: adminProcedure.input(z.string()).query(async ({ input: id }) => {
+  get: publicProcedure.input(z.string()).query(async ({ input: id }) => {
     return await db.teacher.findUnique({
       where: { id },
     });
   }),
-
   list: adminProcedure.query(async () => {
     const teachers: {
       userId: string;
@@ -136,7 +122,7 @@ export const teacherRouter = router({
       };
       if (teacher.tutorOf.length > 0) {
         const student = teacher.tutorOf[0];
-        console.log("Student for TUTOR role:", student);
+        console.log(student);
         const startingRollNo = teacher.tutorOf.reduce(
           (acc, student) => Math.min(acc, student.rollno),
           Number.MAX_SAFE_INTEGER
@@ -155,7 +141,6 @@ export const teacherRouter = router({
       }
       if (teacher.yearInChargeOf.length > 0) {
         const student = teacher.yearInChargeOf[0];
-        console.log("Student for YEAR_IN_CHARGE role:", student);
         extraData.assignedTo = `${student.department!.code}-${student.batch}-${
           student.year
         }-${student.semester}`;
@@ -182,7 +167,6 @@ export const teacherRouter = router({
               departmentId: teacher.hodOf!.id,
             },
           });
-          console.log("Count of students for HOD:", cnt);
           teachers.push({
             id: teacher.id,
             name: teacher.user.name!,
@@ -201,7 +185,7 @@ export const teacherRouter = router({
     return teachers;
   }),
 
-  create: adminProcedure
+  create: publicProcedure
     .input(
       z.object({
         id: z.string().optional(),
@@ -210,8 +194,7 @@ export const teacherRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      console.log("Creating teacher:", input);
-      const result = await db.user.upsert({
+      return await db.user.upsert({
         where: { email: input.email },
         update: {
           name: input.name,
@@ -226,11 +209,9 @@ export const teacherRouter = router({
           },
         },
       });
-      console.log("Teacher created:", result);
-      return result;
     }),
 
-  createMany: adminProcedure
+  createMany: publicProcedure
     .input(
       z.array(
         z.object({
@@ -241,7 +222,6 @@ export const teacherRouter = router({
       )
     )
     .mutation(async ({ input }) => {
-      console.log("Creating multiple teachers:", input);
       const upsertPromises = input.map((teacher) =>
         db.user.upsert({
           where: { email: teacher.email },
@@ -259,63 +239,62 @@ export const teacherRouter = router({
           },
         })
       );
-      const result = await Promise.all(upsertPromises);
-      console.log("Multiple teachers created:", result);
-      return result;
+      return await Promise.all(upsertPromises);
     }),
 
-  getFilteredRequests: adminProcedure
+  getFilteredRequests: publicProcedure
     .input(
       z.object({
         filters: z.custom<Partial<Teacher>>().optional(),
       })
     )
     .query(async ({ input: { filters } }) => {
-      console.log("Getting filtered requests with filters:", filters);
       const where: Prisma.StudentWhereInput = {};
 
-      const result = await db.teacher.findMany({});
-      console.log("Filtered requests result:", result);
-      return result;
+      return await db.teacher.findMany({});
     }),
 
-  assignRole: adminProcedure
+  assignRole: publicProcedure
     .input(TeacherSchema)
     .mutation(async ({ input }) => {
-      console.log("Assigning role:", input);
-      const teacher = (await db.teacher.findUnique({
+      // Check if the teacher exists with role, if yes, unassign the role
+      // Check if another teacher is assigned to the same role, if yes, unassign the role
+      const teacher: FullTeacher = await db.teacher.findUnique({
         where: { id: input.teacherId },
-        include: teacherInclude,
-      })) as FullTeacher;
-      console.log("Current teacher data:", teacher);
-
+        include: {
+          tutorOf: {
+            include: {
+              department: true,
+            },
+          },
+          yearInChargeOf: {
+            include: {
+              department: true,
+            },
+          },
+          hodOf: true,
+        },
+      });
+      // get teacher's current role
       const currentRole = getTeacherRole(teacher);
-      console.log("Current role:", currentRole);
-      const anotherTeacher = await checkIfAnotherTeacherExistsWithSameCriteria(
-        input
-      );
-      console.log("Another teacher with same criteria:", anotherTeacher);
-      if (anotherTeacher) {
-        const anotherTeacherRole = getTeacherRole(anotherTeacher);
-        if (anotherTeacherRole) {
-          await handleUnassign(anotherTeacherRole);
-        }
-      }
+      // check if another teacher exists with the same criteria
       if (currentRole) {
-        await handleUnassign(currentRole);
+        await handleUnassign(input);
+        const anotherTeacher =
+          await checkIfAnotherTeacherExistsWithSameCriteria(currentRole);
+        if (anotherTeacher) {
+          await handleUnassign(currentRole);
+        }
       }
 
       if (input.role === "HOD") {
-        const result = await db.teacher.update({
+        return await db.teacher.update({
           where: { id: input.teacherId },
           data: {
             departmentId: input.departmentId,
           },
         });
-        console.log("Updated HOD:", result);
-        return result;
       }
-
       const studentsWhere: Prisma.StudentWhereInput = {
         departmentId: input.departmentId,
         batch: input.batch,
@@ -332,14 +311,13 @@ export const teacherRouter = router({
       const students = await db.student.findMany({
         where: studentsWhere,
       });
-      console.log("Students found:", students);
 
       if (students.length === 0) {
         throw new Error("No students found with the given criteria");
       }
 
       if (input.role === "TUTOR") {
-        const result = await db.teacher.update({
+        return await db.teacher.update({
           where: { id: input.teacherId },
           data: {
             tutorOf: {
@@ -347,12 +325,10 @@ export const teacherRouter = router({
             },
           },
         });
-        console.log("Updated TUTOR:", result);
-        return result;
       }
 
       if (input.role === "YEAR_IN_CHARGE") {
-        const result = await db.teacher.update({
+        return await db.teacher.update({
           where: { id: input.teacherId },
           data: {
             yearInChargeOf: {
@@ -360,8 +336,6 @@ export const teacherRouter = router({
             },
           },
         });
-        console.log("Updated YEAR_IN_CHARGE:", result);
-        return result;
       }
 
       throw new Error("Invalid role");
@@ -369,16 +343,13 @@ export const teacherRouter = router({
 });
 
 async function handleUnassign(input: TeacherComplexType) {
-  console.log("Unassigning role:", input);
   if (input.role === "HOD") {
-    const result = await db.teacher.update({
+    return await db.teacher.update({
       where: { id: input.teacherId },
       data: {
         departmentId: null,
       },
     });
-    console.log("Unassigned HOD:", result);
-    return result;
   }
 
   const studentsWhere: Prisma.StudentWhereInput = {
@@ -397,14 +368,13 @@ async function handleUnassign(input: TeacherComplexType) {
   const students = await db.student.findMany({
     where: studentsWhere,
   });
-  console.log("Students found for unassigning:", students);
 
   if (students.length === 0) {
     throw new Error("No students found with the given criteria");
   }
 
   if (input.role === "TUTOR") {
-    const result = await db.teacher.update({
+    return await db.teacher.update({
       where: { id: input.teacherId },
       data: {
         tutorOf: {
@@ -412,12 +382,10 @@ async function handleUnassign(input: TeacherComplexType) {
         },
       },
     });
-    console.log("Unassigned TUTOR:", result);
-    return result;
   }
 
   if (input.role === "YEAR_IN_CHARGE") {
-    const result = await db.teacher.update({
+    return await db.teacher.update({
       where: { id: input.teacherId },
       data: {
         yearInChargeOf: {
@@ -425,14 +393,14 @@ async function handleUnassign(input: TeacherComplexType) {
         },
       },
     });
-    console.log("Unassigned YEAR_IN_CHARGE:", result);
-    return result;
   }
 
   throw new Error("Invalid role");
 }
 
-function getTeacherRole(teacher: FullTeacher): TeacherComplexType | null {
+function getTeacherRole(
+  teacher: FullTeacher
+): TeacherComplexType | null {
   if (!teacher) {
     return null;
   }
@@ -449,7 +417,7 @@ function getTeacherRole(teacher: FullTeacher): TeacherComplexType | null {
     return {
       role: "TUTOR",
       teacherId: teacher.id,
-      departmentId: student.department!.id,
+      departmentId: student.department!.code,
       batch: student.batch!,
       year: student.year.toString(),
       semester: student.semester as any,
@@ -463,7 +431,7 @@ function getTeacherRole(teacher: FullTeacher): TeacherComplexType | null {
     return {
       role: "YEAR_IN_CHARGE",
       teacherId: teacher.id,
-      departmentId: student.department!.id,
+      departmentId: student.department!.code,
       batch: student.batch!,
       year: student.year.toString(),
       semester: student.semester as any,
@@ -481,31 +449,25 @@ function getTeacherRole(teacher: FullTeacher): TeacherComplexType | null {
 
 async function checkIfAnotherTeacherExistsWithSameCriteria(
   input: TeacherComplexType
-): Promise<FullTeacher | null> {
-  console.log("Checking if another teacher exists with same criteria:", input);
+) {
   if (input === null) {
-    return null;
+    return;
   }
   if (input.role === "HOD") {
     const teacher = await db.teacher.findFirst({
       where: {
-        id: {
-          not: input.teacherId,
-        },
         hodOf: {
           id: input.departmentId,
         },
       },
-      include: teacherInclude,
     });
-    console.log("Another HOD found:", teacher);
-    return teacher as FullTeacher;
+    return teacher;
   }
   const studentsWhere: Prisma.StudentWhereInput = {
     departmentId: input.departmentId,
     batch: input.batch,
     year: Number(input.year),
-    semester: Number(input.semester),
+    semester: input.semester as any,
   };
   if (input.role === "TUTOR") {
     studentsWhere.section = input.section;
@@ -514,27 +476,15 @@ async function checkIfAnotherTeacherExistsWithSameCriteria(
       lte: input.endRollNo,
     };
   }
-  console.log("Students where:", studentsWhere);
-  let students: Student[] = [];
-  // try {
-    students = await db.student.findMany({
-      where: studentsWhere,
-    });
-  // } catch (error) {
-  //   console.log("Error:", error);
-  //   throw error;
-  // }
-  console.log("Students found for checking:", students);
+  const students = await db.student.findMany({
+    where: studentsWhere,
+  });
   if (students.length === 0) {
     return null;
   }
   if (input.role === "TUTOR") {
-    console.log("Checking for TUTOR role");
     const teacher = await db.teacher.findFirst({
       where: {
-        id: {
-          not: input.teacherId,
-        },
         tutorOf: {
           some: {
             id: {
@@ -543,18 +493,13 @@ async function checkIfAnotherTeacherExistsWithSameCriteria(
           },
         },
       },
-      include: teacherInclude,
     });
-    console.log("Another TUTOR found:", teacher);
-    return teacher as FullTeacher;
+    return teacher;
   }
 
   if (input.role === "YEAR_IN_CHARGE") {
     const teacher = await db.teacher.findFirst({
       where: {
-        id: {
-          not: input.teacherId,
-        },
         yearInChargeOf: {
           some: {
             id: {
@@ -563,10 +508,8 @@ async function checkIfAnotherTeacherExistsWithSameCriteria(
           },
         },
       },
-      include: teacherInclude,
     });
-    console.log("Another YEAR_IN_CHARGE found:", teacher);
-    return teacher as FullTeacher;
+    return teacher;
   }
 
   return null;
