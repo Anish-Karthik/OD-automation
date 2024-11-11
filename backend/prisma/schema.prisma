@@ -57,7 +57,7 @@ model Subject {
   id          String @id @default(auto()) @map("_id") @db.ObjectId
   subjectCode String @unique // Unique code for each subject
   name        String // Name of the subject
-
+  semester    String
   grades Grade[] // Relationship to grades
 }
 
