@@ -64,13 +64,13 @@ model Subject {
 model Grade {
   id        String @id @default(auto()) @map("_id") @db.ObjectId
   grade     String // Grade received by the student
-  regNo     String @db.ObjectId
-  subjectId String @db.ObjectId
+  regNo     String 
+  subjectCode String 
 
-  student Student @relation(fields: [regNo], references: [id], onDelete: Cascade)
-  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [regNo],references: [regNo]  ,onDelete: Cascade)
+  subject Subject @relation(fields: [subjectCode],references: [subjectCode],  onDelete: Cascade)
 
-  @@index([regNo, subjectId], name: "student_subject_index") // Ensures unique grades per student-subject pair
+  @@index([regNo, subjectCode], name: "student_subject_index") // Ensures unique grades per student-subject pair
 }
 
 model Admin {
