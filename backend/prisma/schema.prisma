@@ -64,13 +64,13 @@ model Subject {
 model Grade {
   id        String @id @default(auto()) @map("_id") @db.ObjectId
   grade     String // Grade received by the student
-  studentId String @db.ObjectId
+  regNo     String @db.ObjectId
   subjectId String @db.ObjectId
 
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [regNo], references: [id], onDelete: Cascade)
   subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
-  @@index([studentId, subjectId], name: "student_subject_index") // Ensures unique grades per student-subject pair
+  @@index([regNo, subjectId], name: "student_subject_index") // Ensures unique grades per student-subject pair
 }
 
 model Admin {
@@ -183,7 +183,7 @@ model Request {
   requested          User          @relation(fields: [requestedId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   reasonForRejection String?
 
-  form        Form   @relation(fields: [formId], references: [id],onDelete: Cascade, onUpdate: Cascade)
+  form        Form   @relation(fields: [formId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   formId      String @db.ObjectId
   requestedId String @db.ObjectId
 }
