@@ -76,7 +76,12 @@ authRouter.post("/login", async (req, res) => {
       // res.setHeader("Set-Cookie", sessionCookie.serialize());
       res.appendHeader("Set-Cookie", sessionCookie.serialize());
       console.log(res.getHeaders());
-      return res.status(201).json({ session: session, user: user });
+      const sessionUser = {
+        id: user.id,
+        email: user.email || user.username,
+        role: user.role
+      }
+      return res.status(201).json({ session: session, user: sessionUser });
     } else {
       return res.status(401).json({ message: "Invalid username or password" });
     }
