@@ -40,6 +40,14 @@ export const subjectRouter = router({
     .mutation(async ({ input }) => {
       return await upsertSubject(input);
     }),
+  
+  createMany: adminProcedure.input(z.array(subjectInputSchema)).mutation(async ({ input }) => {
+
+    console.log(input);
+    
+    const subjectCreatePromises = input.map(upsertSubject);
+    return await Promise.all(subjectCreatePromises);
+  }),
 
 
   delete: adminProcedure
