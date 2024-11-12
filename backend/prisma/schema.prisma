@@ -67,8 +67,8 @@ model Grade {
   regNo       String
   subjectCode String
 
-  student Student? @relation(fields: [regNo], references: [regNo], onDelete: Cascade)
-  subject Subject? @relation(fields: [subjectCode], references: [subjectCode], onDelete: Cascade)
+  student Student @relation(fields: [regNo], references: [regNo], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectCode], references: [subjectCode], onDelete: Cascade)
 
   @@index([regNo, subjectCode], name: "student_subject_index") // Ensures unique grades per student-subject pair
 }
